@@ -1,0 +1,14 @@
+# Meson / build
+/build*/
+meson-private/
+meson-info/
+compile_commands.json
+
+# IDE
+.vscode/
+.idea/
+*.user
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,6 @@
+option(
+  'enable_example_feature',
+  type : 'boolean',
+  value : true,
+  description : 'Example feature flag (for demo purposes)'
+)

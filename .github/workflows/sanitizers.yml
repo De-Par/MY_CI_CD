@@ -1,0 +1,57 @@
+name: Sanitizers
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 2 * * *"   # каждую ночь в 02:00 UTC (по желанию)
+
+jobs:
+  sanitizers:
+    name: ASan + UBSan (Linux, clang)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
+
+      - name: Setup Meson env
+        uses: ./.github/actions/setup-meson-env
+
+      - name: Configure ASan build
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          meson setup build-asan \
+            --buildtype=debug \
+            -Db_sanitize=address
+
+      - name: Build (ASan)
+        run: meson compile -C build-asan
+
+      - name: Run tests (ASan)
+        run: meson test -C build-asan --print-errorlogs
+
+      - name: Configure UBSan build
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          meson setup build-ubsan \
+            --buildtype=debug \
+            -Db_sanitize=undefined
+
+      - name: Build (UBSan)
+        run: meson compile -C build-ubsan
+
+      - name: Run tests (UBSan)
+        run: meson test -C build-ubsan --print-errorlogs

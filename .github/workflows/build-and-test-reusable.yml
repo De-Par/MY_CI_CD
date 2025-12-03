@@ -1,0 +1,49 @@
+name: Build & Test (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      buildtype:
+        type: string
+        required: false
+        default: debug
+      run-tests:
+        type: boolean
+        required: false
+        default: true
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Meson env
+        uses: ./.github/actions/setup-meson-env
+
+      - name: Setup MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure (Meson)
+        run: |
+          meson setup builddir \
+            --buildtype=${{ inputs.buildtype }}
+
+      - name: Build
+        run: meson compile -C builddir
+
+      - name: Run tests
+        if: inputs.run-tests == true
+        run: meson test -C builddir --print-errorlogs
