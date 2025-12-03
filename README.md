@@ -26,6 +26,17 @@ README одновременно:
 
 ---
 
+## 0. Краткое резюме CI/CD
+
+* Триггеры: push/PR в `main`, nightly санитайзеры, ручной `workflow_dispatch`, релизы по тегам `v*`.
+* Охват ОС: Linux, macOS, Windows (матрица в CI и релизах).
+* Проверки: clang-format, clang-tidy (warnings-as-errors), Meson-сборка и юнит-тесты в `debug`/`release`.
+* Дополнительно: coverage (gcovr, артефакты HTML/XML), ASan/UBSan (ручной или по расписанию).
+* Релизы: `meson install` → артефакты (`tar.gz` для *nix, `zip` для Windows) автоматически прикрепляются к GitHub Release.
+* Автоматическое окружение: composite action ставит Python+Meson+Ninja и подтягивает wrap для GoogleTest, чтобы сборка не зависела от конкретной ОС.
+
+---
+
 ## 1. Что делает сам проект
 
 ### 1.1. Библиотека `awesome_calc`
@@ -242,7 +253,22 @@ meson test -C build --print-errorlogs
    meson wrap install gtest
    ```
 
-   Это создаст файл `subprojects/gtest.wrap`, который Meson использует для скачивания и сборки GTest.
+   Это создаст файл `subprojects/gtest.wrap`, который Meson использует для скачивания и сборки GTest. В CI этот шаг делает composite action автоматически.
+
+### 5.1.1. Windows (MSVC)
+
+* Установите **Visual Studio Build Tools** или полную Visual Studio с C++ workload.
+* Установите Python и Meson/Ninja через `pip` (как выше).
+* В терминале x64 Native Tools (или под `Developer PowerShell`) выполните:
+
+  ```powershell
+  meson wrap install gtest
+  meson setup build
+  meson compile -C build
+  meson test -C build --print-errorlogs
+  ```
+
+  В GitHub Actions активация MSVC делается шагом `msvc-dev-cmd`, локально его заменяет запуск из VS-инструментального терминала.
 
 ### 5.2. Сборка и запуск
 
@@ -441,13 +467,20 @@ git push origin v1.0.0
 
 Что делает workflow:
 
-1. Собирает проект (release) на разных ОС.
+1. Собирает проект (release) на Linux, macOS и Windows.
 2. Запускает тесты.
 3. Делает `meson install` в staging-директорию.
-4. Упаковывает результат (`tar.gz` / `zip`).
+4. Упаковывает результат (`tar.gz` для Linux/macOS, `zip` для Windows).
 5. Создаёт GitHub Release и прикрепляет артефакты.
 
 Пользователь может зайти во вкладку **Releases** и скачать готовые сборки, не касаясь исходников.
+
+### 7.6. Карта workflow’ов (триггеры → ОС → артефакты)
+
+* `ci.yml`: push/PR → Linux/macOS/Windows → формат, статический анализ, сборка+тесты (debug/release).
+* `coverage.yml`: push main / ручной запуск → Linux → coverage.xml + coverage.html (артефакты).
+* `sanitizers.yml`: nightly + ручной → Linux (clang) → отчёты в логах ASan/UBSan.
+* `release.yml`: тег `v*` → Linux/macOS/Windows → готовые архивы (`tar.gz`/*nix, `zip`/Win) прикладываются к GitHub Release.
 
 ---
 
@@ -461,7 +494,8 @@ git push origin v1.0.0
 
   * установка Python,
   * кэширование pip/meson,
-  * установка Meson+Ninja.
+  * установка Meson+Ninja,
+  * загрузка wrap-файла для GoogleTest (gtest), чтобы Meson смог сам подтянуть зависимость на любой ОС.
 
 Пример использования в workflow:
 

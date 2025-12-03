@@ -28,24 +28,24 @@ calc_dep = declare_dependency(
 subdir('app')
 subdir('tests')
 
+# Локальные цели для форматирования (если clang-format установлен в системе).
 clang_format = find_program('clang-format', required : false)
 
 if clang_format.found()
   format_files = [
-    'src/calc.cpp',
     'app/main.cpp',
-    'tests/test_calc.cpp',
     'include/awesome_calc/calc.hpp',
+    'src/calc.cpp',
+    'tests/test_calc.cpp',
   ]
 
   run_target(
     'format-check',
-    command : [clang_format, '--dry-run', '--Werror'] + format_files
+    command : [clang_format, '--dry-run', '--Werror'] + format_files,
   )
 
   run_target(
     'format',
-    command : [clang_format, '-i'] + format_files
+    command : [clang_format, '-i'] + format_files,
   )
 endif
-

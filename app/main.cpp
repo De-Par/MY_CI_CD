@@ -3,8 +3,8 @@
 
 #include "awesome_calc/calc.hpp"
 
-int main()
-{
+int main() {
+    // Мини-дэма: вызываем библиотеку и печатаем результаты.
     using namespace awesome_calc;
 
     int a = 2;

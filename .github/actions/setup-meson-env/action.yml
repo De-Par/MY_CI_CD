@@ -29,3 +29,12 @@ runs:
         python -m pip install --upgrade pip
         python -m pip install meson ninja
       shell: bash
+
+    - name: Ensure GoogleTest wrap
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p subprojects
+        if [ ! -f subprojects/gtest.wrap ]; then
+          meson wrap install gtest
+        fi

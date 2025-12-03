@@ -1,13 +1,14 @@
 #pragma once
 
-#include <vector>
 #include <stdexcept>
+#include <vector>
 
-namespace awesome_calc
-{
+namespace awesome_calc {
 
-    int add(int a, int b);
+// Складывает два целых числа без побочных эффектов.
+int add(int a, int b);
 
-    double mean(const std::vector<double> &values);
+// Среднее арифметическое; бросает std::invalid_argument при пустом векторе.
+double mean(const std::vector<double>& values);
 
 } // namespace awesome_calc
