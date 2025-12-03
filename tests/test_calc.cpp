@@ -23,7 +23,7 @@ TEST(MeanTest, ThrowsOnEmpty) {
 }
 
 // Определяем точку входа сами, чтобы не зависеть от наличия gtest_main в среде.
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

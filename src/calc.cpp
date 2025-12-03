@@ -5,7 +5,7 @@ int add(int a, int b) {
     return a + b;
 }
 
-double mean(const std::vector<double>& values) {
+double mean(const std::vector<double> &values) {
     if (values.empty()) {
         // Явно сигнализируем об ошибочных входных данных.
         throw std::invalid_argument("values must not be empty");

@@ -9,6 +9,6 @@ namespace awesome_calc {
 int add(int a, int b);
 
 // Среднее арифметическое; бросает std::invalid_argument при пустом векторе.
-double mean(const std::vector<double>& values);
+double mean(const std::vector<double> &values);
 
 } // namespace awesome_calc
