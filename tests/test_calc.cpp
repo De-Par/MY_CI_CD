@@ -21,3 +21,9 @@ TEST(MeanTest, ThrowsOnEmpty) {
     std::vector<double> v;
     EXPECT_THROW(mean(v), std::invalid_argument);
 }
+
+// Определяем точку входа сами, чтобы не зависеть от наличия gtest_main в среде.
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
