@@ -300,6 +300,26 @@ meson setup build-release --buildtype=release
 meson compile -C build-release
 ```
 
+### 5.5. Форматирование перед push (опционально, «как делают в проде»)
+
+**Рекомендуемо (через Meson run_target):**
+
+1. Один раз сконфигурируйте: `meson setup build` (если не сделали раньше).
+2. Добавьте git-hook, который вызывает Meson-цель:
+
+   ```bash
+   cat > .git/hooks/pre-push <<'HOOK'
+   #!/usr/bin/env bash
+   set -euo pipefail
+   meson compile -C build format
+   HOOK
+   chmod +x .git/hooks/pre-push
+   ```
+
+   Цель `format` определяется в `meson.build` и использует clang-format. Такой подход типичен в больших компаниях: форматирование привязано к системе сборки, а не к отдельным скриптам.
+
+**Альтернатива:** `meson format` / `meson format-check` (если clang-format установлен) или ручной вызов `./tools/clang-format-all.sh`.
+
 ---
 
 ## 6. GitHub Actions: как устроен CI/CD на практике

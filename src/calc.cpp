@@ -1,9 +1,8 @@
 #include "awesome_calc/calc.hpp"
 
 namespace awesome_calc {
-int add(int a, int b) {
-    return a + b;
-}
+
+int add(int a, int b) { return a + b; }
 
 double mean(const std::vector<double> &values) {
     if (values.empty()) {
