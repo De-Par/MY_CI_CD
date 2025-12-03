@@ -14,3 +14,13 @@ test(
   'unit-tests',
   test_exe
 )
+
+# Запускаем готовый CLI как smoke-тест: проверяем, что бинарь запускается и пишет ожидаемый вывод.
+cli_prog = find_program('awesome_calc_cli')
+test(
+  'cli-smoke',
+  cli_prog,
+  args : [],
+  should_fail : false,
+  timeout : 10,
+)

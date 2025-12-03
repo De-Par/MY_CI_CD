@@ -7,15 +7,27 @@ project(
     'warning_level=3',
     'werror=true',
     'buildtype=debugoptimized',
+    'default_library=both',
   ]
 )
 
 # Библиотека объявляется здесь, чтобы её видели и app/, и tests/
 calc_includes = include_directories('include')
 
+calc_cpp_args = []
+calc_dep_args = []
+calc_is_shared = get_option('default_library') != 'static'
+
+if host_machine.system() == 'windows' and calc_is_shared
+  # Для shared на Windows нужны __declspec(dllexport/dllimport).
+  calc_cpp_args += ['-DAWESOME_CALC_SHARED', '-DAWESOME_CALC_BUILD']
+  calc_dep_args += ['-DAWESOME_CALC_SHARED']
+endif
+
 calc_lib = library(
   'awesome_calc',
   'src/calc.cpp',
+  cpp_args : calc_cpp_args,
   include_directories : calc_includes,
   install : true,
 )
@@ -23,6 +35,7 @@ calc_lib = library(
 calc_dep = declare_dependency(
   link_with : calc_lib,
   include_directories : calc_includes,
+  compile_args : calc_dep_args,
 )
 
 subdir('app')
