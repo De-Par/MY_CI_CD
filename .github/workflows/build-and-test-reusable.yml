@@ -21,10 +21,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
-    defaults:
-      run:
-        shell: bash
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,13 +33,34 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Configure (Meson)
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           meson setup builddir \
             --buildtype=${{ inputs.buildtype }}
 
+      - name: Configure (Meson, Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          meson setup builddir --buildtype=${{ inputs.buildtype }}
+
       - name: Build
+        if: runner.os != 'Windows'
+        shell: bash
+        run: meson compile -C builddir
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: meson compile -C builddir
 
       - name: Run tests
-        if: inputs.run-tests == true
+        if: inputs.run-tests == true && runner.os != 'Windows'
+        shell: bash
+        run: meson test -C builddir --print-errorlogs
+
+      - name: Run tests (Windows)
+        if: inputs.run-tests == true && runner.os == 'Windows'
+        shell: pwsh
         run: meson test -C builddir --print-errorlogs
