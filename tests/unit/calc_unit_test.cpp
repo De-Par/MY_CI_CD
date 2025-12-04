@@ -55,14 +55,12 @@ TEST_P(ClampAddTest, SaturatesWithinBounds) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    ClampCases,
-    ClampAddTest,
-    ::testing::Values(
-        ClampParams{1, 2, -10, 10, 3},     // внутри диапазона
-        ClampParams{100, 50, -10, 120, 120}, // верхняя насыщенность
-        ClampParams{-100, -50, -120, 10, -120}, // нижняя насыщенность
-        ClampParams{0, 0, -1, 1, 0} // на границе
-    ));
+    ClampCases, ClampAddTest,
+    ::testing::Values(ClampParams{1, 2, -10, 10, 3},          // внутри диапазона
+                      ClampParams{100, 50, -10, 120, 120},    // верхняя насыщенность
+                      ClampParams{-100, -50, -120, 10, -120}, // нижняя насыщенность
+                      ClampParams{0, 0, -1, 1, 0}             // на границе
+                      ));
 
 TEST(ClampAddTest, ThrowsOnInvalidBounds) {
     EXPECT_THROW(awesome_calc::clamp_add(1, 2, 10, -10), std::invalid_argument);
@@ -70,7 +68,7 @@ TEST(ClampAddTest, ThrowsOnInvalidBounds) {
 
 // ---- Stateful API: фикстура для RunningStats ----
 class RunningStatsTest : public ::testing::Test {
-protected:
+  protected:
     void SetUp() override {
         stats.push(10.0);
         stats.push(20.0);

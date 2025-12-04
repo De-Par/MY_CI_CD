@@ -1,8 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <stdexcept>
 #include <vector>
-#include <cstddef>
 
 namespace awesome_calc {
 
@@ -35,7 +35,7 @@ AWESOME_CALC_API int clamp_add(int a, int b, int min_value, int max_value);
 
 // Накопитель статистики для демонстрации stateful-API и тестов фикстурой.
 class AWESOME_CALC_API RunningStats {
-public:
+  public:
     RunningStats() = default;
 
     // Добавляет значение в поток.
@@ -57,7 +57,7 @@ public:
     double min() const;
     double max() const;
 
-private:
+  private:
     double sum_ = 0.0;
     double min_ = 0.0;
     double max_ = 0.0;
