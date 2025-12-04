@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
-#include <cstdio>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -19,7 +19,8 @@ static std::string run_cli_and_capture() {
     std::string result;
 
     const char *build_root_env = std::getenv("MESON_BUILD_ROOT");
-    const std::filesystem::path build_root = build_root_env ? std::filesystem::path(build_root_env) : std::filesystem::path(".");
+    const std::filesystem::path build_root =
+        build_root_env ? std::filesystem::path(build_root_env) : std::filesystem::path(".");
 
     std::filesystem::path cli_path = build_root / "awesome_calc_cli";
 #ifdef _WIN32
