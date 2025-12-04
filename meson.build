@@ -40,37 +40,3 @@ calc_dep = declare_dependency(
 
 subdir('app')
 subdir('tests')
-
-# Локальные цели для форматирования (если clang-format установлен в системе).
-clang_format_opt = get_option('clang_format_bin')
-if clang_format_opt != ''
-  clang_format = find_program(clang_format_opt, required : false)
-else
-  clang_format = find_program('clang-format-21', required : false)
-  if not clang_format.found()
-    clang_format = find_program('clang-format-15', required : false)
-    if not clang_format.found()
-      clang_format = find_program('clang-format', required : false)
-    endif
-  endif
-endif
-
-if clang_format.found()
-  format_files = [
-    'app/main.cpp',
-    'include/awesome_calc/calc.hpp',
-    'src/calc.cpp',
-    'tests/unit/calc_unit_test.cpp',
-    'tests/integration/cli_integration_test.cpp',
-  ]
-
-  run_target(
-    'format-check',
-    command : [clang_format, '--dry-run', '--Werror'] + format_files,
-  )
-
-  run_target(
-    'format',
-    command : [clang_format, '-i'] + format_files,
-  )
-endif
