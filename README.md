@@ -61,20 +61,37 @@ namespace awesome_calc {
 int add(int a, int b);                     // Сложение двух целых чисел
 
 double mean(const std::vector<double>&);   // Среднее арифметическое вектора
+double weighted_mean(const std::vector<double>&, const std::vector<double>&); // Взвешенное среднее
+double median(std::vector<double>);        // Медиана (копируем, чтобы сортировать)
+int clamp_add(int a, int b, int min, int max); // Сатурированное сложение с границами
+
+class RunningStats {
+public:
+    void push(double v);    // Добавить значение
+    void reset();           // Сбросить состояние
+    std::size_t count() const;
+    double sum() const;
+    double average() const; // Исключение при пустом состоянии
+    double min() const;     // Исключение при пустом состоянии
+    double max() const;     // Исключение при пустом состоянии
+};
 
 } // namespace awesome_calc
 ```
 
 Особенности:
 
-* `mean` выбрасывает `std::invalid_argument`, если вектор пустой (это покрыто тестами).
+* `mean`/`weighted_mean` выбрасывают `std::invalid_argument` при некорректных данных (пустой вектор, несоответствие размеров, сумма весов = 0).
+* `median` выбрасывает `std::invalid_argument` при пустом векторе.
+* `clamp_add` проверяет границы (exception при min > max).
+* `RunningStats` демонстрирует stateful-API: накопитель с подсчётом min/max/avg; исключения при обращении к пустому состоянию.
 * Код оформлен и форматирован по `.clang-format`.
 
 ### 1.2. CLI-утилита `awesome_calc_cli`
 
 Консольная программа, которая:
 
-* вызывает `add` и `mean`,
+* вызывает `add`, `mean`, `median`, `weighted_mean`, `clamp_add`, `RunningStats`,
 * печатает результаты в stdout.
 
 Это просто пример **реального использования библиотеки** — такой небольшой end-to-end сценарий.
@@ -215,19 +232,22 @@ meson test -C build --print-errorlogs
 ├── meson.options
 ├── include/
 │   └── awesome_calc/
-│       └── calc.hpp       # Заголовок библиотеки
+│       └── calc.hpp        # Заголовок библиотеки
 ├── src/
 │   ├── meson.build
-│   └── calc.cpp                   # Реализация библиотеки
+│   └── calc.cpp            # Реализация библиотеки
 ├── app/
 │   ├── meson.build
-│   └── main.cpp                   # CLI-приложение
+│   └── main.cpp            # CLI-приложение
+├── docs/
+│   ├── CI_CD_PIPLINE.md    # Подробно о CI/CD пайплайне и диаграммы
+│   └── GTEST_GUIDE.md      # Краткий гайд по GTest и паттернам тестирования
 ├── tests/
 │   ├── meson.build
 │   ├── unit/
-│   │   └── calc_unit_test.cpp     # Юнит-тесты (GoogleTest)
+│   │   └── calc_unit_test.cpp          # Юнит-тесты (GoogleTest)
 │   └── integration/
-│       └── cli_integration_test.cpp  # Интеграционный тест (GoogleTest)
+│       └── cli_integration_test.cpp    # Интеграционный тест (GoogleTest)
 └── .github/
     ├── actions/
     │   └── setup-meson-env/

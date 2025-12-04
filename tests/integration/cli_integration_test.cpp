@@ -77,4 +77,8 @@ TEST(CliIntegration, ProducesExpectedOutput) {
     const std::string out = run_cli_and_capture();
     EXPECT_NE(out.find("add(2, 3) = 5"), std::string::npos);
     EXPECT_NE(out.find("mean(1,2,3,4) = 2.5"), std::string::npos);
+    EXPECT_NE(out.find("median(1,2,3,4) = 2.5"), std::string::npos);
+    EXPECT_NE(out.find("weighted_mean(1,2,3,4 | 0.1,0.2,0.3,0.4) = 3"), std::string::npos);
+    EXPECT_NE(out.find("clamp_add(100, 50, -100, 120) = 120"), std::string::npos);
+    EXPECT_NE(out.find("running_stats count=3"), std::string::npos);
 }
