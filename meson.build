@@ -42,7 +42,18 @@ subdir('app')
 subdir('tests')
 
 # Локальные цели для форматирования (если clang-format установлен в системе).
-clang_format = find_program('clang-format', required : false)
+clang_format_env = meson.get_env('CLANG_FORMAT')
+if clang_format_env != ''
+  clang_format = find_program(clang_format_env, required : false)
+else
+  clang_format = find_program('clang-format-21', required : false)
+  if not clang_format.found()
+    clang_format = find_program('clang-format-15', required : false)
+    if not clang_format.found()
+      clang_format = find_program('clang-format', required : false)
+    endif
+  endif
+endif
 
 if clang_format.found()
   format_files = [

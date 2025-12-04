@@ -4,8 +4,12 @@
 
 set -euo pipefail
 
-if ! command -v clang-format >/dev/null 2>&1; then
-  echo "clang-format не найден. Установите его из пакета clang-format или через пакетный менеджер." >&2
+export CLANG_FORMAT_BIN=/opt/homebrew/bin/clang-format  # измени на свой путь
+
+CLANG_FORMAT_BIN=${CLANG_FORMAT_BIN:-clang-format-21}
+
+if ! command -v "$CLANG_FORMAT_BIN" >/dev/null 2>&1; then
+  echo "$CLANG_FORMAT_BIN не найден. Установите его (например, apt + llvm.sh 21) или задайте CLANG_FORMAT_BIN." >&2
   exit 1
 fi
 
@@ -32,7 +36,7 @@ for f in ${FILES}; do
   cp "$f" "${tmpdir}/$f"
 done
 
-clang-format -i ${FILES}
+$CLANG_FORMAT_BIN -i ${FILES}
 
 changed=""
 for f in ${FILES}; do

@@ -36,6 +36,7 @@ README одновременно:
 * Релизы: `meson install` → артефакты (`tar.gz` для *nix, `zip` для Windows) автоматически прикрепляются к GitHub Release; режимы CD управляются через `CD_MODE`.
 * Автоматическое окружение: composite action ставит Python+Meson+Ninja, создаёт кеш и подтягивает wrap для GoogleTest.
 * Self-hosted Linux: можно гонять CI/CD на своём сервере (см. 7.7).
+* clang-format: используем фиксированную версию `clang-format-21` (CI + скрипты). При необходимости переопределить — задайте `CLANG_FORMAT_BIN` или переменную окружения `CLANG_FORMAT`.
 
 ### 0.1. Быстрый старт (локально)
 
