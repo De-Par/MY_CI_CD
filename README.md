@@ -393,13 +393,18 @@ meson compile -C build-release
 
 4. **Build & Test (release)**:
 
-   * то же самое, но с `buildtype=release`.
+  * то же самое, но с `buildtype=release`.
 
 Итого: каждый PR гарантированно:
 
 * отформатирован,
 * статически проверен,
 * собирается и проходит тесты на всех трёх ОС.
+
+Настройка матрицы ОС:
+
+* В `ci.yml` матрица задаётся в `matrix.os: [ubuntu-latest, macos-latest, windows-latest]`. Уберите/добавьте ОС по необходимости.
+* Можно сделать флаги через repo variables (Settings → Variables), например `ENABLE_WINDOWS=true/false`, и обернуть шаги в `if: runner.os != 'Windows' || vars.ENABLE_WINDOWS == 'true'`.
 
 ### 7.2. `build-test-reusable.yml` — переиспользуемый Workflow
 
@@ -499,6 +504,10 @@ git push origin v1.0.0
 
 * В repo Settings → Variables задайте `CD_MODE` (`auto` — по тегам; `scheduled` — по cron + ручной; `manual` — только ручной запуск в Actions).
 * По умолчанию `CD_MODE=auto`. Когда включён `scheduled`, автозапуск по расписанию сработает, когда `manual` — только `Run workflow` в Actions.
+
+Матрица ОС для релизов:
+
+* В `release.yml` список ОС в `matrix.os` (Linux/macOS/Windows). При необходимости уберите/добавьте ОС или используйте флаги через repo variables аналогично `ci.yml`.
 
 Пользователь может зайти во вкладку **Releases** и скачать готовые сборки, не касаясь исходников.
 
