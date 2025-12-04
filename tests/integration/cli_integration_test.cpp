@@ -18,9 +18,26 @@ static std::string run_cli_and_capture() {
     std::array<char, 256> buffer{};
     std::string result;
 
-    const char *build_root_env = std::getenv("MESON_BUILD_ROOT");
-    const std::filesystem::path build_root =
-        build_root_env ? std::filesystem::path(build_root_env) : std::filesystem::path(".");
+    auto get_env = [](const char *name) -> std::string {
+#ifdef _WIN32
+        char *buf = nullptr;
+        size_t sz = 0;
+        if (_dupenv_s(&buf, &sz, name) != 0 || buf == nullptr) {
+            return {};
+        }
+        std::string val(buf);
+        free(buf);
+        return val;
+#else
+        const char *v = std::getenv(name);
+        return v ? std::string(v) : std::string();
+#endif
+    };
+
+    const std::string build_root_env = get_env("MESON_BUILD_ROOT");
+    const std::filesystem::path build_root = !build_root_env.empty()
+                                                 ? std::filesystem::path(build_root_env)
+                                                 : std::filesystem::path(".");
 
     // Бинарь может лежать в корне build или в поддиректории app (как генерирует Meson).
     std::filesystem::path cli_path = build_root / "awesome_calc_cli";
