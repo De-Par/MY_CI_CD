@@ -36,7 +36,8 @@ README одновременно:
 * Релизы: `meson install` → артефакты (`tar.gz` для *nix, `zip` для Windows) автоматически прикрепляются к GitHub Release; режимы CD управляются через `CD_MODE`.
 * Автоматическое окружение: composite action ставит Python+Meson+Ninja, создаёт кеш и подтягивает wrap для GoogleTest.
 * Self-hosted Linux: можно гонять CI/CD на своём сервере (см. 7.7).
-* clang-format: в CI используется фиксированная версия `clang-format-21`; локально форматирование через скрипт `tools/clang-format-all.sh`, который берёт системный `clang-format` из PATH (поставьте ту же версию, если хотите совпадения).
+* clang-format: локально — системный `clang-format` из PATH через скрипт `tools/clang-format-all.sh`; в CI версия задаётся параметром `CLANG_FORMAT_VERSION` (по умолчанию 21). Чтобы форматы совпадали, ставьте такую же версию у себя или меняйте `CLANG_FORMAT_VERSION` под свою.
+* Проверка форматирования в CI выполняется только на Ubuntu (там проще ставить конкретную версию через apt/llvm.sh). Если запускаете локально на macOS/Windows, используйте ту же версию clang-format, иначе CI может поймать расхождения.
 
 ### 0.1. Быстрый старт (локально)
 
@@ -230,7 +231,7 @@ meson test -C build --print-errorlogs
 ├── .gitignore
 ├── README.md
 ├── meson.build
-├── meson.options
+├── meson_options.txt
 ├── include/
 │   └── awesome_calc/
 │       └── calc.hpp        # Заголовок библиотеки
