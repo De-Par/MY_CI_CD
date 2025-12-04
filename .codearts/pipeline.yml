@@ -1,0 +1,107 @@
+stages:
+  - stage: lint
+    jobs:
+      - name: lint-clang-format
+        runs-on: linux
+        steps:
+          - run: |
+              sudo apt-get update
+              sudo apt-get install -y wget gnupg clang-format-21
+              files=$(find src include app tests -name '*.cpp' -o -name '*.hpp')
+              if [ -n "$files" ]; then
+                clang-format-21 --dry-run --Werror $files
+              fi
+
+  - stage: analyze
+    jobs:
+      - name: clang-tidy
+        runs-on: linux
+        steps:
+          - run: |
+              sudo apt-get update
+              sudo apt-get install -y clang clang-tidy ninja-build python3 python3-pip
+              pip3 install meson
+              meson setup build-tidy --buildtype=debug
+              meson compile -C build-tidy
+              files=$(find src include app tests -name '*.cpp')
+              for f in $files; do
+                echo "==> clang-tidy $f"
+                clang-tidy "$f" -p build-tidy --warnings-as-errors='*'
+              done
+
+  - stage: build
+    jobs:
+      - name: build-debug
+        runs-on: linux
+        steps:
+          - run: |
+              sudo apt-get update
+              sudo apt-get install -y ninja-build python3 python3-pip
+              pip3 install meson
+              meson setup build --buildtype=debug
+              meson compile -C build
+              meson test -C build --print-errorlogs
+
+      - name: build-release
+        runs-on: linux
+        steps:
+          - run: |
+              sudo apt-get update
+              sudo apt-get install -y ninja-build python3 python3-pip
+              pip3 install meson
+              meson setup build-release --buildtype=release
+              meson compile -C build-release
+              meson test -C build-release --print-errorlogs
+
+  - stage: coverage
+    jobs:
+      - name: coverage-gcovr
+        runs-on: linux
+        steps:
+          - run: |
+              sudo apt-get update
+              sudo apt-get install -y ninja-build python3 python3-pip
+              pip3 install meson gcovr
+              meson setup build-coverage --buildtype=debug -Db_coverage=true
+              meson compile -C build-coverage
+              meson test -C build-coverage --print-errorlogs
+              gcovr -r . --xml-pretty -o coverage.xml --html-details coverage.html || true
+        artifacts:
+          paths:
+            - coverage.xml
+            - coverage.html
+
+  - stage: sanitizers
+    jobs:
+      - name: asan
+        runs-on: linux
+        steps:
+          - run: |
+              sudo apt-get update
+              sudo apt-get install -y clang ninja-build python3 python3-pip
+              pip3 install meson
+              meson setup build-asan --buildtype=debug -Db_sanitize=address -Db_lundef=false
+              meson compile -C build-asan
+              meson test -C build-asan --print-errorlogs
+
+      - name: ubsan
+        runs-on: linux
+        steps:
+          - run: |
+              sudo apt-get update
+              sudo apt-get install -y clang ninja-build python3 python3-pip
+              pip3 install meson
+              meson setup build-ubsan --buildtype=debug -Db_sanitize=undefined -Db_lundef=false
+              meson compile -C build-ubsan
+              meson test -C build-ubsan --print-errorlogs
+
+      - name: tsan
+        runs-on: linux
+        steps:
+          - run: |
+              sudo apt-get update
+              sudo apt-get install -y clang ninja-build python3 python3-pip
+              pip3 install meson
+              meson setup build-tsan --buildtype=debug -Db_sanitize=thread -Db_lundef=false
+              meson compile -C build-tsan
+              meson test -C build-tsan --print-errorlogs
