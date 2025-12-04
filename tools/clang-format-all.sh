@@ -33,24 +33,24 @@ done
 
 "$CLANG_FORMAT_BIN" -i ${FILES}
 
-changed=""
+changed_files=()
 for f in ${FILES}; do
   if ! cmp -s "$f" "${tmpdir}/$f"; then
-    changed="${changed} $f"
+    changed_files+=("$f")
   fi
 done
 rm -rf "$tmpdir"
 
 echo "Форматирование..."
 
-if [ -z "$changed" ]; then
+if [ ${#changed_files[@]} -eq 0 ]; then
   echo "Изменений нет, всё в порядке"
 else
   echo "Отформатированы файлы:"
   echo "----------------------"
-  while IFS= read -r line; do
-    [ -n "$line" ] && echo "🟡 $line"
-  done <<< "$changed"
+  for line in "${changed_files[@]}"; do
+    echo "🟡 $line"
+  done
 fi
 
 echo "----------------------"
