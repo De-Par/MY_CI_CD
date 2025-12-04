@@ -47,6 +47,11 @@ static std::string run_cli_and_capture() {
     return result;
 }
 
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+
 TEST(CliIntegration, ProducesExpectedOutput) {
     const std::string out = run_cli_and_capture();
     EXPECT_NE(out.find("add(2, 3) = 5"), std::string::npos);
