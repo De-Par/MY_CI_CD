@@ -8,7 +8,7 @@ on:
 
 jobs:
   clang-format:
-    name: Lint: clang-format
+    name: "Lint: clang-format"
     runs-on: ubuntu-latest
 
     steps:
@@ -28,7 +28,7 @@ jobs:
           fi
 
   clang-tidy:
-    name: Analyze: clang-tidy
+    name: "Analyze: clang-tidy"
     runs-on: ubuntu-latest
     needs: clang-format
 
@@ -71,7 +71,7 @@ jobs:
           fi
 
   build-debug:
-    name: Build/Test: debug
+    name: "Build/Test: debug"
     needs: clang-tidy
     uses: ./.github/workflows/build-test-reusable.yml
     with:
@@ -79,7 +79,7 @@ jobs:
       run-tests: true
 
   build-release:
-    name: Build/Test: release
+    name: "Build/Test: release"
     needs: clang-tidy
     uses: ./.github/workflows/build-test-reusable.yml
     with:
