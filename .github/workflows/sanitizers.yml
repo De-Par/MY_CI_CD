@@ -10,7 +10,7 @@ on:
 
 jobs:
   sanitizers:
-    name: "Sanitizers: asan/ubsan/tsan (Linux, clang)"
+    name: "Sanitizer (${{ matrix.kind }})"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

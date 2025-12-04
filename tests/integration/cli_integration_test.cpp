@@ -27,7 +27,15 @@ static std::string run_cli_and_capture() {
 #endif
 
     const std::string cmd = "\"" + cli_path.string() + "\"";
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+    struct PipeCloser {
+        void operator()(FILE *f) const {
+            if (f) {
+                pclose(f);
+            }
+        }
+    };
+
+    std::unique_ptr<FILE, PipeCloser> pipe(popen(cmd.c_str(), "r"));
     if (!pipe) {
         throw std::runtime_error("failed to spawn awesome_calc_cli");
     }
