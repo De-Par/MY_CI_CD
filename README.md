@@ -458,10 +458,10 @@ meson compile -C build-release
 * `push` в `main` — автоматом (можно отключить при желании);
 * `schedule` (например, каждый день в 02:00) — ночные тяжёлые проверки.
 
-Действия: матрица `asan` / `ubsan` / `tsan`:
+Действия: матрица `address` / `undefined` / `thread` (ASan/UBSan/TSan):
 
 ```bash
-CC=clang CXX=clang++ meson setup build-<kind> --buildtype=debug -Db_sanitize=<kind>
+CC=clang CXX=clang++ meson setup build-<kind> --buildtype=debug -Db_sanitize=<kind> -Db_lundef=false
 meson compile -C build-<kind>
 meson test -C build-<kind> --print-errorlogs
 ```

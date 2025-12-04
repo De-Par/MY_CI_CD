@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kind: [asan, ubsan, tsan]
+        kind: [address, undefined, thread]
 
     defaults:
       run:
@@ -41,7 +41,8 @@ jobs:
           builddir="build-${{ matrix.kind }}"
           meson setup "$builddir" \
             --buildtype=debug \
-            -Db_sanitize=${{ matrix.kind }}
+            -Db_sanitize=${{ matrix.kind }} \
+            -Db_lundef=false
 
       - name: Build
         run: meson compile -C "build-${{ matrix.kind }}"
