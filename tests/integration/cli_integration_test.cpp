@@ -22,7 +22,11 @@ static std::string run_cli_and_capture() {
     const std::filesystem::path build_root =
         build_root_env ? std::filesystem::path(build_root_env) : std::filesystem::path(".");
 
+    // Бинарь может лежать в корне build или в поддиректории app (как генерирует Meson).
     std::filesystem::path cli_path = build_root / "awesome_calc_cli";
+    if (!std::filesystem::exists(cli_path)) {
+        cli_path = build_root / "app" / "awesome_calc_cli";
+    }
 #ifdef _WIN32
     cli_path += ".exe";
 #endif
