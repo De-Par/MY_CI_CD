@@ -4,11 +4,18 @@ on:
   workflow_dispatch: {}
   schedule:
     - cron: "0 2 * * *"   # каждую ночь в 02:00 UTC (по желанию)
+  push:
+    branches:
+      - main
 
 jobs:
   sanitizers:
-    name: ASan + UBSan (Linux, clang)
+    name: Sanitizers: asan/ubsan/tsan (Linux, clang)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [asan, ubsan, tsan]
 
     defaults:
       run:
@@ -26,32 +33,18 @@ jobs:
       - name: Setup Meson env
         uses: ./.github/actions/setup-meson-env
 
-      - name: Configure ASan build
+      - name: Configure sanitizer build
         env:
           CC: clang
           CXX: clang++
         run: |
-          meson setup build-asan \
+          builddir="build-${{ matrix.kind }}"
+          meson setup "$builddir" \
             --buildtype=debug \
-            -Db_sanitize=address
+            -Db_sanitize=${{ matrix.kind }}
 
-      - name: Build (ASan)
-        run: meson compile -C build-asan
+      - name: Build
+        run: meson compile -C "build-${{ matrix.kind }}"
 
-      - name: Run tests (ASan)
-        run: meson test -C build-asan --print-errorlogs
-
-      - name: Configure UBSan build
-        env:
-          CC: clang
-          CXX: clang++
-        run: |
-          meson setup build-ubsan \
-            --buildtype=debug \
-            -Db_sanitize=undefined
-
-      - name: Build (UBSan)
-        run: meson compile -C build-ubsan
-
-      - name: Run tests (UBSan)
-        run: meson test -C build-ubsan --print-errorlogs
+      - name: Run tests
+        run: meson test -C "build-${{ matrix.kind }}" --print-errorlogs

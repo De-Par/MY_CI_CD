@@ -49,7 +49,8 @@ if clang_format.found()
     'app/main.cpp',
     'include/awesome_calc/calc.hpp',
     'src/calc.cpp',
-    'tests/test_calc.cpp',
+    'tests/unit/calc_unit_test.cpp',
+    'tests/integration/cli_integration_test.cpp',
   ]
 
   run_target(
