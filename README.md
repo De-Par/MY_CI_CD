@@ -31,7 +31,7 @@ README одновременно:
 * Триггеры: push/PR в `main`, nightly санитайзеры, ручной `workflow_dispatch`, релизы по тегам `v*`.
 * Охват ОС: Linux, macOS, Windows (матрица в CI и релизах, можно выключать ОС по необходимости).
 * Проверки: clang-format, clang-tidy (warnings-as-errors), Meson-сборка и юнит-тесты в `debug`/`release`.
-* Дополнительно: coverage (gcovr, артефакты HTML/XML), ASan/UBSan/TSan (ручной/по расписанию, Linux).
+* Дополнительно: coverage (gcovr, артефакты HTML/XML), динамический анализ ASan/UBSan/TSan (ручной/по расписанию, Linux).
 * Библиотека собирается и как static, и как shared (Windows макросы для экспорта настроены в коде/Meson).
 * Релизы: `meson install` → артефакты (`tar.gz` для *nix, `zip` для Windows) автоматически прикрепляются к GitHub Release; режимы CD управляются через `CD_MODE`.
 * Автоматическое окружение: composite action ставит Python+Meson+Ninja, создаёт кеш и подтягивает wrap для GoogleTest.
