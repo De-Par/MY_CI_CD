@@ -18,76 +18,100 @@ permissions:
   contents: read
 
 jobs:
+  vars:
+    runs-on: ubuntu-latest
+    outputs:
+      CI_TEST_TIMEOUT_MULTIPLIER: ${{ steps.load.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
+      CI_RUN_MACOS: ${{ steps.load.outputs.CI_RUN_MACOS }}
+      CI_RUN_WINDOWS: ${{ steps.load.outputs.CI_RUN_WINDOWS }}
+      CI_RUN_TSAN: ${{ steps.load.outputs.CI_RUN_TSAN }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: load
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = '.github/ci-vars.json';
+            const raw = fs.readFileSync(path, 'utf8');
+            const cfg = JSON.parse(raw);
+            const keys = ['CI_TEST_TIMEOUT_MULTIPLIER', 'CI_RUN_MACOS', 'CI_RUN_WINDOWS', 'CI_RUN_TSAN'];
+            for (const k of keys) {
+              const val = cfg[k] ?? '';
+              core.info(`${k}=${val}`);
+              core.setOutput(k, String(val));
+            }
   lint:
     # clang-format
+    needs: vars
     uses: ./.github/workflows/_lint.yml
 
   analyze:
     # clang-tidy после форматирования
-    needs: lint
+    needs: [vars, lint]
     uses: ./.github/workflows/_analyze.yml
 
   build-linux-debug:
     # Linux debug
-    needs: analyze
+    needs: [vars, analyze]
     uses: ./.github/workflows/_build.yml
     with:
       runner_os: ubuntu-latest
       name_suffix: linux
       buildtype: debug
-      test_timeout_multiplier: "1"
+      test_timeout_multiplier: ${{ needs.vars.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
 
   build-linux-release:
     # Linux release
-    needs: analyze
+    needs: [vars, analyze]
     uses: ./.github/workflows/_build.yml
     with:
       runner_os: ubuntu-latest
       name_suffix: linux
       buildtype: release
-      test_timeout_multiplier: "1"
+      test_timeout_multiplier: ${{ needs.vars.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
 
   build-macos:
     # macOS debug/release (включается флагом CI_RUN_MACOS)
-    if: false
-    needs: analyze
+    if: ${{ (needs.vars.outputs.CI_RUN_MACOS || 'false') == 'true' }}
+    needs: [vars, analyze]
     uses: ./.github/workflows/_build.yml
     with:
       runner_os: macos-latest
       name_suffix: macos
       buildtype: debug
-      test_timeout_multiplier: "1"
+      test_timeout_multiplier: ${{ needs.vars.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
 
   build-macos-release:
-    if: false
-    needs: analyze
+    if: ${{ (needs.vars.outputs.CI_RUN_MACOS || 'false') == 'true' }}
+    needs: [vars, analyze]
     uses: ./.github/workflows/_build.yml
     with:
       runner_os: macos-latest
       name_suffix: macos
       buildtype: release
-      test_timeout_multiplier: "1"
+      test_timeout_multiplier: ${{ needs.vars.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
 
   build-windows:
     # Windows debug/release (включается флагом CI_RUN_WINDOWS)
-    if: false
-    needs: analyze
+    if: ${{ (needs.vars.outputs.CI_RUN_WINDOWS || 'false') == 'true' }}
+    needs: [vars, analyze]
     uses: ./.github/workflows/_build.yml
     with:
       runner_os: windows-latest
       name_suffix: windows
       buildtype: debug
-      test_timeout_multiplier: "1"
+      test_timeout_multiplier: ${{ needs.vars.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
 
   build-windows-release:
-    if: false
-    needs: analyze
+    if: ${{ (needs.vars.outputs.CI_RUN_WINDOWS || 'false') == 'true' }}
+    needs: [vars, analyze]
     uses: ./.github/workflows/_build.yml
     with:
       runner_os: windows-latest
       name_suffix: windows
       buildtype: release
-      test_timeout_multiplier: "1"
+      test_timeout_multiplier: ${{ needs.vars.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
 
   coverage:
     # Покрытие: запускается по расписанию и на main
@@ -95,13 +119,13 @@ jobs:
     needs: build-linux-debug
     uses: ./.github/workflows/_coverage.yml
     with:
-      test_timeout_multiplier: "1"
+      test_timeout_multiplier: ${{ needs.vars.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
 
   asan:
     needs: build-linux-debug
     uses: ./.github/workflows/_sanitizers.yml
     with:
-      test_timeout_multiplier: "1"
+      test_timeout_multiplier: ${{ needs.vars.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
       sanitizer: address
       allow_failure: false
 
@@ -109,16 +133,16 @@ jobs:
     needs: build-linux-debug
     uses: ./.github/workflows/_sanitizers.yml
     with:
-      test_timeout_multiplier: "1"
+      test_timeout_multiplier: ${{ needs.vars.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
       sanitizer: undefined
       allow_failure: false
 
   tsan:
-    if: false
+    if: ${{ (needs.vars.outputs.CI_RUN_TSAN || 'false') == 'true' }}
     needs: build-linux-debug
     uses: ./.github/workflows/_sanitizers.yml
     with:
-      test_timeout_multiplier: "1"
+      test_timeout_multiplier: ${{ needs.vars.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
       sanitizer: thread
       allow_failure: true
 
@@ -128,4 +152,4 @@ jobs:
     needs: build-linux-release
     uses: ./.github/workflows/_release.yml
     with:
-      test_timeout_multiplier: "1"
+      test_timeout_multiplier: ${{ needs.vars.outputs.CI_TEST_TIMEOUT_MULTIPLIER }}
