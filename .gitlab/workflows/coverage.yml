@@ -1,0 +1,27 @@
+coverage:
+  # Отдельный прогон для покрытия: включает -Db_coverage=true и снимает отчёт gcovr.
+  extends: .setup_meson_env
+  stage: coverage
+  needs: ["build_debug"]
+  timeout: 30m
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'  # Автозапуск по расписанию.
+    - if: '$CI_COMMIT_BRANCH == "main"'        # Запуск на main.
+    - when: manual                             # Для остальных — вручную, чтобы не тормозить MR.
+      allow_failure: true
+  script:
+    - meson setup build-coverage --buildtype=debug -Db_coverage=true
+    - meson compile -C build-coverage
+    - meson test -C build-coverage --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+    - gcovr -r . --gcov-executable "llvm-cov gcov" --xml-pretty -o coverage.xml --html-details coverage.html || true
+  artifacts:
+    when: always
+    paths:
+      - coverage.xml
+      - coverage.html
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+      junit:
+        - build-coverage/meson-logs/testlog.junit.xml

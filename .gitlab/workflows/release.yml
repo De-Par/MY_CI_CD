@@ -1,0 +1,18 @@
+release:
+  # Пакуем релиз только на тегах; зависит от build_release.
+  extends: .setup_meson_env
+  stage: release
+  needs: ["build_release"]
+  rules:
+    - if: '$CI_COMMIT_TAG'
+    - when: never
+  script:
+    - meson setup build-release --buildtype=release
+    - meson compile -C build-release
+    - meson test -C build-release --print-errorlogs
+    - meson install -C build-release --destdir=install-root
+    - tar czf awesome_calc-${CI_COMMIT_TAG}-linux.tar.gz -C install-root .
+  artifacts:
+    when: on_success
+    paths:
+      - awesome_calc-*-linux.tar.gz

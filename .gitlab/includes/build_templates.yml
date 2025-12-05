@@ -1,0 +1,27 @@
+# Shared Meson build template reused by build jobs.
+.build_and_test:
+  # Шаблон сборки/тестов под Meson; переопределяй BUILD_DIR/BUILD_TYPE в наследниках.
+  extends: .setup_meson_env
+  stage: build
+  timeout: 20m
+  variables:
+    BUILD_DIR: builddir
+    BUILD_TYPE: debug
+    RUN_TESTS: "true"
+  script:
+    - meson setup "${BUILD_DIR}" --buildtype="${BUILD_TYPE}"
+    - meson compile -C "${BUILD_DIR}"
+    - |
+      if [ "${RUN_TESTS}" = "true" ]; then
+        meson test -C "${BUILD_DIR}" --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+      else
+        echo "Tests are skipped (RUN_TESTS=${RUN_TESTS})"
+      fi
+  artifacts:
+    when: always
+    paths:
+      - ${BUILD_DIR}/meson-logs
+    reports:
+      junit:
+        - ${BUILD_DIR}/meson-logs/testlog.junit.xml
+    expire_in: 1 week

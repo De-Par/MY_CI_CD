@@ -1,0 +1,42 @@
+.sanitizer_job:
+  # Базовый шаблон для санитайзеров; конкретный вид задаётся переменной SANITIZER.
+  extends: .setup_meson_env
+  stage: sanitizers
+  needs: ["build_debug"]
+  timeout: 20m
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'  # Автоматически по расписанию.
+    - if: '$CI_COMMIT_BRANCH == "main"'        # На main прогоняем обязательно.
+    - when: manual                             # Остальные ветки — ручной запуск.
+      allow_failure: true
+  script:
+    - builddir="build-${SANITIZER}"
+    - meson setup "$builddir" --buildtype=debug -Db_sanitize=${SANITIZER} -Db_lundef=false
+    - meson compile -C "$builddir"
+    - meson test -C "$builddir" --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+  artifacts:
+    when: always
+    paths:
+      - build-${SANITIZER}/meson-logs
+    reports:
+      junit:
+        - build-${SANITIZER}/meson-logs/testlog.junit.xml
+
+asan:
+  extends: .sanitizer_job
+  variables:
+    SANITIZER: address
+
+ubsan:
+  extends: .sanitizer_job
+  variables:
+    SANITIZER: undefined
+
+tsan:
+  extends: .sanitizer_job
+  allow_failure: true
+  rules:
+    - if: '$CI_RUN_TSAN == "true"'  # Включается только при явном флаге.
+    - when: never                   # Иначе скрыт.
+  variables:
+    SANITIZER: thread

@@ -1,0 +1,167 @@
+lint:
+  # clang-format: быстрый чек стиля перед любыми сборками.
+  extends: .setup_meson_env
+  stage: lint
+  script:
+    - files=$(find src include app tests -name '*.cpp' -o -name '*.hpp')
+    - |
+      if [ -n "$files" ]; then
+        clang-format --dry-run --Werror $files
+      else
+        echo "No C++ files to format"
+      fi
+
+analyze:
+  # clang-tidy: статический анализ после форматирования.
+  extends: .setup_meson_env
+  stage: analyze
+  needs: ["lint"]
+  script:
+    - meson setup build-tidy --buildtype=debug
+    - meson compile -C build-tidy
+    - files=$(find src include app tests -name '*.cpp')
+    - |
+      if [ -n "$files" ]; then
+        for f in $files; do
+          echo "==> clang-tidy $f"
+          clang-tidy "$f" -p build-tidy --warnings-as-errors='*'
+        done
+      else
+        echo "No sources for clang-tidy"
+      fi
+
+build_debug:
+  # Linux debug: основная отладочная сборка + тесты.
+  extends: .build_and_test
+  variables:
+    BUILD_DIR: build-debug
+    BUILD_TYPE: debug
+  needs: ["analyze"]
+
+build_release:
+  # Linux release: проверяем оптимизированную сборку.
+  extends: .build_and_test
+  variables:
+    BUILD_DIR: build-release
+    BUILD_TYPE: release
+  needs: ["analyze"]
+
+build_macos_debug:
+  # macOS debug: включается флагом CI_RUN_MACOS и тэгом runner macos.
+  stage: build
+  needs: ["analyze"]
+  tags: ["macos"]
+  timeout: 30m
+  variables:
+    BUILD_DIR: build-macos
+    BUILD_TYPE: debug
+  rules:
+    - if: '$CI_RUN_MACOS == "true"'
+  before_script:
+    - brew update
+    - brew install python ninja meson llvm clang-format clang-tidy || true
+    - python3 -m pip install --upgrade pip
+    - python3 -m pip install meson ninja gcovr
+    - mkdir -p subprojects
+    - if [ ! -f subprojects/gtest.wrap ]; then meson wrap install gtest; fi
+  script:
+    - meson setup "${BUILD_DIR}" --buildtype="${BUILD_TYPE}"
+    - meson compile -C "${BUILD_DIR}"
+    - meson test -C "${BUILD_DIR}" --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+  artifacts:
+    when: always
+    paths:
+      - ${BUILD_DIR}/meson-logs
+    reports:
+      junit:
+        - ${BUILD_DIR}/meson-logs/testlog.junit.xml
+    expire_in: 1 week
+
+build_macos_release:
+  # macOS release: оптимизированная сборка на macOS.
+  stage: build
+  needs: ["analyze"]
+  tags: ["macos"]
+  timeout: 30m
+  variables:
+    BUILD_DIR: build-macos-release
+    BUILD_TYPE: release
+  rules:
+    - if: '$CI_RUN_MACOS == "true"'
+  before_script:
+    - brew update
+    - brew install python ninja meson llvm clang-format clang-tidy || true
+    - python3 -m pip install --upgrade pip
+    - python3 -m pip install meson ninja gcovr
+    - mkdir -p subprojects
+    - if [ ! -f subprojects/gtest.wrap ]; then meson wrap install gtest; fi
+  script:
+    - meson setup "${BUILD_DIR}" --buildtype="${BUILD_TYPE}"
+    - meson compile -C "${BUILD_DIR}"
+    - meson test -C "${BUILD_DIR}" --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+  artifacts:
+    when: always
+    paths:
+      - ${BUILD_DIR}/meson-logs
+    reports:
+      junit:
+        - ${BUILD_DIR}/meson-logs/testlog.junit.xml
+    expire_in: 1 week
+
+build_windows_debug:
+  # Windows debug: включает тесты, запускается при CI_RUN_WINDOWS=true.
+  stage: build
+  needs: ["analyze"]
+  tags: ["windows"]
+  timeout: 30m
+  variables:
+    BUILD_DIR: build-windows
+    BUILD_TYPE: debug
+  rules:
+    - if: '$CI_RUN_WINDOWS == "true"'
+  before_script:
+    - python -m pip install --upgrade pip
+    - python -m pip install meson ninja gcovr
+    - powershell -Command "if (!(Test-Path subprojects)) { New-Item subprojects -ItemType Directory | Out-Null }"
+    - powershell -Command "if (!(Test-Path subprojects/gtest.wrap)) { meson wrap install gtest }"
+  script:
+    - meson setup "$env:BUILD_DIR" --buildtype="$env:BUILD_TYPE"
+    - meson compile -C "$env:BUILD_DIR"
+    - meson test -C "$env:BUILD_DIR" --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+  artifacts:
+    when: always
+    paths:
+      - ${BUILD_DIR}/meson-logs
+    reports:
+      junit:
+        - ${BUILD_DIR}/meson-logs/testlog.junit.xml
+    expire_in: 1 week
+
+build_windows_release:
+  # Windows release: проверяем оптимизированную сборку под Windows.
+  stage: build
+  needs: ["analyze"]
+  tags: ["windows"]
+  timeout: 30m
+  variables:
+    BUILD_DIR: build-windows-release
+    BUILD_TYPE: release
+  rules:
+    - if: '$CI_RUN_WINDOWS == "true"'
+  before_script:
+    - python -m pip install --upgrade pip
+    - python -m pip install meson ninja gcovr
+    - powershell -Command "if (!(Test-Path subprojects)) { New-Item subprojects -ItemType Directory | Out-Null }"
+    - powershell -Command "if (!(Test-Path subprojects/gtest.wrap)) { meson wrap install gtest }"
+  script:
+    - meson setup "$env:BUILD_DIR" --buildtype="$env:BUILD_TYPE"
+    - meson compile -C "$env:BUILD_DIR"
+    - meson test -C "$env:BUILD_DIR" --print-errorlogs --timeout-multiplier="$env:CI_TEST_TIMEOUT_MULTIPLIER"
+  artifacts:
+    when: always
+    paths:
+      - ${BUILD_DIR}/meson-logs
+    reports:
+      junit:
+        - ${BUILD_DIR}/meson-logs/testlog.junit.xml
+    expire_in: 1 week

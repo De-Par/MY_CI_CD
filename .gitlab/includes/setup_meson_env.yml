@@ -1,0 +1,25 @@
+.setup_meson_env:
+  # Базовый шаг: ставим инструменты, настраиваем кэш и wrap для gtest.
+  image: ${CI_BASE_IMAGE}
+  retry: 2                     # Перезапуск при случайных сбоях раннера/сети.
+  interruptible: true          # Отменять устаревшие пайплайны при новых пушах.
+  variables:
+    PIP_CACHE_DIR: .cache/pip
+    XDG_CACHE_HOME: .cache
+    CCACHE_DIR: .cache/ccache
+  cache:
+    key: "${CI_PROJECT_NAME}-${CI_COMMIT_REF_SLUG}-pip-meson"
+    paths:
+      - .cache/pip
+      - .cache/meson
+      - .cache/ccache
+  before_script:
+    - apt-get update
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y ${APT_PACKAGES}
+    - export PATH="/usr/lib/ccache:$PATH"
+    - mkdir -p "$PIP_CACHE_DIR" "$XDG_CACHE_HOME/meson" "$CCACHE_DIR"
+    - ccache -M "${CCACHE_MAX_SIZE}" || true
+    - python3 -m pip install --upgrade pip
+    - python3 -m pip install ${PIP_PACKAGES}
+    - mkdir -p subprojects
+    - if [ ! -f subprojects/gtest.wrap ]; then meson wrap install gtest; fi
