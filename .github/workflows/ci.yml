@@ -36,10 +36,17 @@ jobs:
             const raw = fs.readFileSync(path, 'utf8');
             const cfg = JSON.parse(raw);
             const keys = ['CI_TEST_TIMEOUT_MULTIPLIER', 'CI_RUN_MACOS', 'CI_RUN_WINDOWS', 'CI_RUN_TSAN'];
+            const defaults = {
+              CI_TEST_TIMEOUT_MULTIPLIER: '1',
+              CI_RUN_MACOS: 'false',
+              CI_RUN_WINDOWS: 'false',
+              CI_RUN_TSAN: 'false',
+            };
             for (const k of keys) {
-              const val = cfg[k] ?? '';
-              core.info(`${k}=${val}`);
-              core.setOutput(k, String(val));
+              const val = cfg[k] ?? defaults[k];
+              const out = String(val === '' ? defaults[k] : val);
+              core.info(`${k}=${out}`);
+              core.setOutput(k, out);
             }
   lint:
     # clang-format
