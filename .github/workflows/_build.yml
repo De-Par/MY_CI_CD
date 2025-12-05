@@ -1,0 +1,73 @@
+name: build
+
+on:
+  workflow_call:
+    inputs:
+      runner_os:
+        description: "GitHub runner OS (ubuntu-latest / macos-latest / windows-latest)"
+        required: true
+        type: string
+      name_suffix:
+        description: "Suffix for job/artifact naming (linux/macos/windows)"
+        required: true
+        type: string
+      test_timeout_multiplier:
+        description: "Multiplier for meson test timeout"
+        required: false
+        default: "1"
+        type: string
+
+jobs:
+  build:
+    # Универсальный билд/тест под выбранный runner OS и buildtype матрицу.
+    name: build-${{ inputs.name_suffix }} (${{ matrix.buildtype }})
+    runs-on: ${{ inputs.runner_os }}
+    timeout-minutes: 40
+    env:
+      CI_TEST_TIMEOUT_MULTIPLIER: ${{ inputs.test_timeout_multiplier }}
+    strategy:
+      fail-fast: false
+      matrix:
+        buildtype: [debug, release]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC (Windows)
+        if: ${{ startsWith(inputs.runner_os, 'windows-') }}
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - uses: ./.github/actions/setup_meson_env
+
+      - name: Configure
+        if: ${{ !startsWith(inputs.runner_os, 'windows-') }}
+        run: meson setup build-${{ matrix.buildtype }} --buildtype=${{ matrix.buildtype }}
+
+      - name: Configure (Windows)
+        if: ${{ startsWith(inputs.runner_os, 'windows-') }}
+        shell: pwsh
+        run: meson setup build-${{ matrix.buildtype }} --buildtype=${{ matrix.buildtype }}
+
+      - name: Build
+        if: ${{ !startsWith(inputs.runner_os, 'windows-') }}
+        run: meson compile -C build-${{ matrix.buildtype }}
+
+      - name: Build (Windows)
+        if: ${{ startsWith(inputs.runner_os, 'windows-') }}
+        shell: pwsh
+        run: meson compile -C build-${{ matrix.buildtype }}
+
+      - name: Test
+        if: ${{ !startsWith(inputs.runner_os, 'windows-') }}
+        run: meson test -C build-${{ matrix.buildtype }} --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+
+      - name: Test (Windows)
+        if: ${{ startsWith(inputs.runner_os, 'windows-') }}
+        shell: pwsh
+        run: meson test -C build-${{ matrix.buildtype }} --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ inputs.name_suffix }}-${{ matrix.buildtype }}
+          path: build-${{ matrix.buildtype }}/meson-logs

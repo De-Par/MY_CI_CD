@@ -1,0 +1,39 @@
+name: coverage
+
+on:
+  workflow_call:
+    inputs:
+      test_timeout_multiplier:
+        description: "Multiplier for meson test timeout"
+        required: false
+        default: "1"
+        type: string
+
+jobs:
+  coverage:
+    # Покрытие: билд с -Db_coverage=true + отчёт gcovr
+    name: coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI_TEST_TIMEOUT_MULTIPLIER: ${{ inputs.test_timeout_multiplier }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup_meson_env
+      - name: Configure (coverage)
+        run: meson setup build-coverage --buildtype=debug -Db_coverage=true
+      - name: Build (coverage)
+        run: meson compile -C build-coverage
+      - name: Test (coverage)
+        run: meson test -C build-coverage --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+      - name: Coverage report
+        run: |
+          gcovr -r . --gcov-executable "llvm-cov gcov" --xml-pretty -o coverage.xml --html-details coverage.html || true
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            coverage.html

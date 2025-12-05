@@ -1,0 +1,22 @@
+name: lint
+
+on:
+  workflow_call: {}
+
+jobs:
+  lint:
+    # clang-format: быстрый чек стиля
+    name: lint (clang-format)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup_meson_env
+      - name: clang-format
+        run: |
+          files=$(find src include app tests -name '*.cpp' -o -name '*.hpp')
+          if [ -n "$files" ]; then
+            clang-format --dry-run --Werror $files
+          else
+            echo "No C++ files to format"
+          fi

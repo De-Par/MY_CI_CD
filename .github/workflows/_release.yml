@@ -1,0 +1,38 @@
+name: release
+
+on:
+  workflow_call:
+    inputs:
+      test_timeout_multiplier:
+        description: "Multiplier for meson test timeout"
+        required: false
+        default: "1"
+        type: string
+
+jobs:
+  release:
+    # Релиз: билд, тесты, install, упаковка артефакта
+    name: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI_TEST_TIMEOUT_MULTIPLIER: ${{ inputs.test_timeout_multiplier }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup_meson_env
+      - name: Configure (release)
+        run: meson setup build-release --buildtype=release
+      - name: Build (release)
+        run: meson compile -C build-release
+      - name: Test (release)
+        run: meson test -C build-release --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+      - name: Install
+        run: meson install -C build-release --destdir=install-root
+      - name: Pack artifact
+        run: |
+          tar czf awesome_calc-${GITHUB_REF_NAME}-linux.tar.gz -C install-root .
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: awesome_calc-${{ github.ref_name }}-linux.tar.gz
+          path: awesome_calc-${{ github.ref_name }}-linux.tar.gz

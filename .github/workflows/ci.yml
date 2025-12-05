@@ -2,93 +2,89 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: ["**"]
   pull_request:
-    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
 
+# Отменяем устаревшие запуски на тот же ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Минимальные права: только чтение репозитория.
+permissions:
+  contents: read
+
+# Глобальные параметры (аналог переменных GitLab), переопределяются через workflow dispatch/UI.
 env:
-  CLANG_FORMAT_VERSION: "21"
+  CC: clang
+  CXX: clang++
+  CI_TEST_TIMEOUT_MULTIPLIER: "1" # Увеличьте на медленных раннерах.
+  CI_RUN_MACOS: "false"           # Включить матрицу macOS (требуются macOS-раннеры).
+  CI_RUN_WINDOWS: "false"         # Включить матрицу Windows.
+  CI_RUN_TSAN: "false"            # Включить TSan (может требовать привилегий/VM).
 
 jobs:
-  clang-format:
-    name: "Lint: clang-format"
-    runs-on: ubuntu-latest
+  lint:
+    # clang-format
+    uses: ./.github/workflows/_lint.yml
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  analyze:
+    # clang-tidy после форматирования
+    needs: lint
+    uses: ./.github/workflows/_analyze.yml
 
-      - name: Install clang-format
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget gnupg
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh ${CLANG_FORMAT_VERSION}
-          sudo apt-get install -y clang-format-${CLANG_FORMAT_VERSION}
-
-      - name: Run clang-format (check only)
-        run: |
-          files=$(find src include app tests -name '*.cpp' -o -name '*.hpp')
-          if [ -n "$files" ]; then
-            clang-format-${CLANG_FORMAT_VERSION} --dry-run --Werror $files
-          fi
-
-  clang-tidy:
-    name: "Analyze: clang-tidy"
-    runs-on: ubuntu-latest
-    needs: clang-format
-
-    defaults:
-      run:
-        shell: bash
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install clang + clang-tidy
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang clang-tidy
-
-      - name: Setup Meson env
-        uses: ./.github/actions/setup-meson-env
-
-      - name: Configure (Meson, debug, clang)
-        env:
-          CC: clang
-          CXX: clang++
-        run: |
-          meson setup build-tidy \
-            --buildtype=debug \
-            --backend=ninja
-
-      - name: Build (for compile_commands.json)
-        run: meson compile -C build-tidy
-
-      - name: Run clang-tidy
-        run: |
-          files=$(find src include app tests -name '*.cpp')
-          if [ -n "$files" ]; then
-            for f in $files; do
-              echo "==> clang-tidy $f"
-              clang-tidy "$f" -p build-tidy --warnings-as-errors='*'
-            done
-          fi
-
-  build-debug:
-    name: "Build/Test: debug"
-    needs: clang-tidy
-    uses: ./.github/workflows/build-test-reusable.yml
+  build-linux:
+    # Linux debug/release матрица
+    needs: analyze
+    uses: ./.github/workflows/_build.yml
     with:
-      buildtype: debug
-      run-tests: true
+      runner_os: ubuntu-latest
+      name_suffix: linux
+      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
 
-  build-release:
-    name: "Build/Test: release"
-    needs: clang-tidy
-    uses: ./.github/workflows/build-test-reusable.yml
+  build-macos:
+    # macOS debug/release (включается флагом CI_RUN_MACOS)
+    if: ${{ env.CI_RUN_MACOS == 'true' }}
+    needs: analyze
+    uses: ./.github/workflows/_build.yml
     with:
-      buildtype: release
-      run-tests: true
+      runner_os: macos-latest
+      name_suffix: macos
+      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
+
+  build-windows:
+    # Windows debug/release (включается флагом CI_RUN_WINDOWS)
+    if: ${{ env.CI_RUN_WINDOWS == 'true' }}
+    needs: analyze
+    uses: ./.github/workflows/_build.yml
+    with:
+      runner_os: windows-latest
+      name_suffix: windows
+      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
+
+  coverage:
+    # Покрытие: запускается по расписанию и на main
+    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
+    needs: build-linux
+    uses: ./.github/workflows/_coverage.yml
+    with:
+      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
+
+  sanitizers:
+    # ASan/UBSan всегда; TSan по флагу CI_RUN_TSAN
+    needs: build-linux
+    uses: ./.github/workflows/_sanitizers.yml
+    with:
+      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
+      run_tsan: ${{ env.CI_RUN_TSAN }}
+
+  release:
+    # Релиз только на тегах
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build-linux
+    uses: ./.github/workflows/_release.yml
+    with:
+      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
