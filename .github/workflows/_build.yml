@@ -11,6 +11,10 @@ on:
         description: "Suffix for job/artifact naming (linux/macos/windows)"
         required: true
         type: string
+      buildtype:
+        description: "Meson buildtype (debug/release)"
+        required: true
+        type: string
       test_timeout_multiplier:
         description: "Multiplier for meson test timeout"
         required: false
@@ -19,16 +23,12 @@ on:
 
 jobs:
   build:
-    # Универсальный билд/тест под выбранный runner OS и buildtype матрицу.
-    name: build-${{ inputs.name_suffix }} (${{ matrix.buildtype }})
+    # Универсальный билд/тест под выбранный runner OS и buildtype.
+    name: build-${{ inputs.name_suffix }} (${{ inputs.buildtype }})
     runs-on: ${{ inputs.runner_os }}
     timeout-minutes: 40
     env:
       CI_TEST_TIMEOUT_MULTIPLIER: ${{ inputs.test_timeout_multiplier }}
-    strategy:
-      fail-fast: false
-      matrix:
-        buildtype: [debug, release]
     steps:
       - uses: actions/checkout@v4
 
@@ -40,34 +40,34 @@ jobs:
 
       - name: Configure
         if: ${{ !startsWith(inputs.runner_os, 'windows-') }}
-        run: meson setup build-${{ matrix.buildtype }} --buildtype=${{ matrix.buildtype }}
+        run: meson setup build-${{ inputs.buildtype }} --buildtype=${{ inputs.buildtype }}
 
       - name: Configure (Windows)
         if: ${{ startsWith(inputs.runner_os, 'windows-') }}
         shell: pwsh
-        run: meson setup build-${{ matrix.buildtype }} --buildtype=${{ matrix.buildtype }}
+        run: meson setup build-${{ inputs.buildtype }} --buildtype=${{ inputs.buildtype }}
 
       - name: Build
         if: ${{ !startsWith(inputs.runner_os, 'windows-') }}
-        run: meson compile -C build-${{ matrix.buildtype }}
+        run: meson compile -C build-${{ inputs.buildtype }}
 
       - name: Build (Windows)
         if: ${{ startsWith(inputs.runner_os, 'windows-') }}
         shell: pwsh
-        run: meson compile -C build-${{ matrix.buildtype }}
+        run: meson compile -C build-${{ inputs.buildtype }}
 
       - name: Test
         if: ${{ !startsWith(inputs.runner_os, 'windows-') }}
-        run: meson test -C build-${{ matrix.buildtype }} --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+        run: meson test -C build-${{ inputs.buildtype }} --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
 
       - name: Test (Windows)
         if: ${{ startsWith(inputs.runner_os, 'windows-') }}
         shell: pwsh
-        run: meson test -C build-${{ matrix.buildtype }} --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+        run: meson test -C build-${{ inputs.buildtype }} --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
 
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: logs-${{ inputs.name_suffix }}-${{ matrix.buildtype }}
-          path: build-${{ matrix.buildtype }}/meson-logs
+          name: logs-${{ inputs.name_suffix }}-${{ inputs.buildtype }}
+          path: build-${{ inputs.buildtype }}/meson-logs

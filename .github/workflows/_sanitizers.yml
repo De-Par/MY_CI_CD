@@ -8,41 +8,37 @@ on:
         required: false
         default: "1"
         type: string
-      run_tsan:
-        description: "Enable TSan run"
+      sanitizer:
+        description: "Sanitizer kind (address/undefined/thread)"
+        required: true
+        type: string
+      allow_failure:
+        description: "Allow failure (for TSan)"
         required: false
         default: "false"
         type: string
 
 jobs:
   sanitizers:
-    # ASan/UBSan всегда; TSan по флагу
-    name: sanitizers (${{ matrix.sanitizer }})
+    # Единичный прогон под выбранный санитайзер.
+    name: sanitizers (${{ inputs.sanitizer }})
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
       CI_TEST_TIMEOUT_MULTIPLIER: ${{ inputs.test_timeout_multiplier }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - sanitizer: address
-          - sanitizer: undefined
-          - sanitizer: thread
-    if: ${{ matrix.sanitizer != 'thread' || inputs.run_tsan == 'true' }}
-    continue-on-error: ${{ matrix.sanitizer == 'thread' }}
+    continue-on-error: ${{ inputs.allow_failure == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup_meson_env
       - name: Configure (sanitizer)
-        run: meson setup build-${{ matrix.sanitizer }} --buildtype=debug -Db_sanitize=${{ matrix.sanitizer }} -Db_lundef=false
+        run: meson setup build-${{ inputs.sanitizer }} --buildtype=debug -Db_sanitize=${{ inputs.sanitizer }} -Db_lundef=false
       - name: Build (sanitizer)
-        run: meson compile -C build-${{ matrix.sanitizer }}
+        run: meson compile -C build-${{ inputs.sanitizer }}
       - name: Test (sanitizer)
-        run: meson test -C build-${{ matrix.sanitizer }} --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
+        run: meson test -C build-${{ inputs.sanitizer }} --print-errorlogs --timeout-multiplier="${CI_TEST_TIMEOUT_MULTIPLIER}"
       - name: Upload sanitizer logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: logs-${{ matrix.sanitizer }}
-          path: build-${{ matrix.sanitizer }}/meson-logs
+          name: logs-${{ inputs.sanitizer }}
+          path: build-${{ inputs.sanitizer }}/meson-logs

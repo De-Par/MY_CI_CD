@@ -17,15 +17,6 @@ concurrency:
 permissions:
   contents: read
 
-# Глобальные параметры (аналог переменных GitLab), переопределяются через workflow dispatch/UI.
-env:
-  CC: clang
-  CXX: clang++
-  CI_TEST_TIMEOUT_MULTIPLIER: "1" # Увеличьте на медленных раннерах.
-  CI_RUN_MACOS: "false"           # Включить матрицу macOS (требуются macOS-раннеры).
-  CI_RUN_WINDOWS: "false"         # Включить матрицу Windows.
-  CI_RUN_TSAN: "false"            # Включить TSan (может требовать привилегий/VM).
-
 jobs:
   lint:
     # clang-format
@@ -36,55 +27,105 @@ jobs:
     needs: lint
     uses: ./.github/workflows/_analyze.yml
 
-  build-linux:
-    # Linux debug/release матрица
+  build-linux-debug:
+    # Linux debug
     needs: analyze
     uses: ./.github/workflows/_build.yml
     with:
       runner_os: ubuntu-latest
       name_suffix: linux
-      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
+      buildtype: debug
+      test_timeout_multiplier: "1"
+
+  build-linux-release:
+    # Linux release
+    needs: analyze
+    uses: ./.github/workflows/_build.yml
+    with:
+      runner_os: ubuntu-latest
+      name_suffix: linux
+      buildtype: release
+      test_timeout_multiplier: "1"
 
   build-macos:
     # macOS debug/release (включается флагом CI_RUN_MACOS)
-    if: ${{ env.CI_RUN_MACOS == 'true' }}
+    if: false
     needs: analyze
     uses: ./.github/workflows/_build.yml
     with:
       runner_os: macos-latest
       name_suffix: macos
-      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
+      buildtype: debug
+      test_timeout_multiplier: "1"
+
+  build-macos-release:
+    if: false
+    needs: analyze
+    uses: ./.github/workflows/_build.yml
+    with:
+      runner_os: macos-latest
+      name_suffix: macos
+      buildtype: release
+      test_timeout_multiplier: "1"
 
   build-windows:
     # Windows debug/release (включается флагом CI_RUN_WINDOWS)
-    if: ${{ env.CI_RUN_WINDOWS == 'true' }}
+    if: false
     needs: analyze
     uses: ./.github/workflows/_build.yml
     with:
       runner_os: windows-latest
       name_suffix: windows
-      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
+      buildtype: debug
+      test_timeout_multiplier: "1"
+
+  build-windows-release:
+    if: false
+    needs: analyze
+    uses: ./.github/workflows/_build.yml
+    with:
+      runner_os: windows-latest
+      name_suffix: windows
+      buildtype: release
+      test_timeout_multiplier: "1"
 
   coverage:
     # Покрытие: запускается по расписанию и на main
     if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
-    needs: build-linux
+    needs: build-linux-debug
     uses: ./.github/workflows/_coverage.yml
     with:
-      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
+      test_timeout_multiplier: "1"
 
-  sanitizers:
-    # ASan/UBSan всегда; TSan по флагу CI_RUN_TSAN
-    needs: build-linux
+  asan:
+    needs: build-linux-debug
     uses: ./.github/workflows/_sanitizers.yml
     with:
-      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
-      run_tsan: ${{ env.CI_RUN_TSAN }}
+      test_timeout_multiplier: "1"
+      sanitizer: address
+      allow_failure: false
+
+  ubsan:
+    needs: build-linux-debug
+    uses: ./.github/workflows/_sanitizers.yml
+    with:
+      test_timeout_multiplier: "1"
+      sanitizer: undefined
+      allow_failure: false
+
+  tsan:
+    if: false
+    needs: build-linux-debug
+    uses: ./.github/workflows/_sanitizers.yml
+    with:
+      test_timeout_multiplier: "1"
+      sanitizer: thread
+      allow_failure: true
 
   release:
     # Релиз только на тегах
     if: startsWith(github.ref, 'refs/tags/')
-    needs: build-linux
+    needs: build-linux-release
     uses: ./.github/workflows/_release.yml
     with:
-      test_timeout_multiplier: ${{ env.CI_TEST_TIMEOUT_MULTIPLIER }}
+      test_timeout_multiplier: "1"
