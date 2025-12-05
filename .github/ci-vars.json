@@ -1,6 +1,0 @@
-{
-  "CI_TEST_TIMEOUT_MULTIPLIER": "1",
-  "CI_RUN_MACOS": "true",
-  "CI_RUN_WINDOWS": "true",
-  "CI_RUN_TSAN": "true"
-}

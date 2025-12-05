@@ -1,3 +1,4 @@
+
 name: 'Setup Meson C++ env'
 description: 'Install Python, Meson, Ninja and configure cache'
 inputs:
