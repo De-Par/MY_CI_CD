@@ -1,6 +1,6 @@
 pipeline {
-    // Агент по умолчанию не используется: каждый stage сам выбирает ноду
-    agent none
+    // Один агент на весь pipeline (у тебя это сейчас MacOS Jenkins)
+    agent any
 
     options {
         timestamps()
@@ -8,11 +8,11 @@ pipeline {
     }
 
     parameters {
-        // Выбор ОС пользователем
-        booleanParam(name: 'RUN_LINUX',  defaultValue: false,  description: 'Run Linux pipeline')
-        booleanParam(name: 'RUN_MAC',    defaultValue: true, description: 'Run macOS pipeline')
+        // Ветки для разных "ОС-пайплайнов"
+        booleanParam(name: 'RUN_LINUX',  defaultValue: true,  description: 'Run Linux-style pipeline')
+        booleanParam(name: 'RUN_MAC',    defaultValue: false, description: 'Run macOS-style pipeline')
 
-        // Дополнительные галочки только для Linux
+        // Дополнительные галочки только для Linux-ветки
         booleanParam(name: 'RUN_COVERAGE',    defaultValue: false, description: 'Run coverage build (gcovr, Linux only)')
         booleanParam(name: 'RUN_ASAN',        defaultValue: false, description: 'Run AddressSanitizer build (Linux only)')
         booleanParam(name: 'RUN_UBSAN',       defaultValue: false, description: 'Run UndefinedBehaviorSanitizer build (Linux only)')
@@ -25,35 +25,40 @@ pipeline {
     }
 
     stages {
-        // ----------- COMMON -----------
+        // ---------- COMMON ----------
 
         stage('Checkout') {
-            agent any
             steps {
                 ansiColor('xterm') {
                     checkout scm
-                    // Чтобы можно было использовать исходники в нескольких стадиях / матрицах
+                    // Чтобы переиспользовать исходники в разных стадиях/матрицах
                     stash name: 'source', includes: '**/*'
+                    sh '''
+                        #!/usr/bin/env bash
+                        set -euo pipefail
+                        echo "[INFO] Checked out sources"
+                        echo "[INFO] Running on OS: $(uname -s)"
+                    '''
                 }
             }
         }
 
-        // ----------- LINUX STAGES -----------
+        // ---------- LINUX-ВЕТКА (по сути просто «Linux-конфигурация», сейчас бежит на твоём Mac Jenkins) ----------
 
         stage('Bootstrap env (Linux)') {
             when {
                 expression { params.RUN_LINUX }
             }
-            agent { label 'linux' }
             steps {
                 ansiColor('xterm') {
+                    unstash 'source'
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
                         echo "[Linux] Bootstrap environment"
-                        which meson  || echo "meson must be installed on Linux node"
-                        which ninja  || echo "ninja must be installed on Linux node"
-                        which gcovr || echo "gcovr (for coverage) is optional"
+                        which meson  || echo "[WARN] meson not in PATH"
+                        which ninja  || echo "[WARN] ninja not in PATH"
+                        which gcovr || echo "[INFO] gcovr not found (coverage optional)"
                     '''
                 }
             }
@@ -63,7 +68,6 @@ pipeline {
             when {
                 expression { params.RUN_LINUX }
             }
-            agent { label 'linux' }
             steps {
                 ansiColor('xterm') {
                     unstash 'source'
@@ -71,10 +75,15 @@ pipeline {
                         #!/usr/bin/env bash
                         set -euo pipefail
                         echo "[Linux] clang-format check"
-                        # При необходимости поправь директории/маски файлов
-                        find src tests -name '*.cpp' -o -name '*.hpp' -o -name '*.h' | while read -r file; do
+                        if ! command -v clang-format-${CLANG_FORMAT_VERSION} >/dev/null 2>&1; then
+                            echo "[WARN] clang-format-${CLANG_FORMAT_VERSION} not found, skipping"
+                            exit 0
+                        fi
+                        # Подстрой под свою структуру
+                        find src tests -type f \\( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \\) | while read -r file; do
                             clang-format-${CLANG_FORMAT_VERSION} --dry-run --Werror "$file"
                         done
+                        echo "[Linux] clang-format OK"
                     '''
                 }
             }
@@ -84,22 +93,33 @@ pipeline {
             when {
                 expression { params.RUN_LINUX }
             }
-            agent { label 'linux' }
             steps {
                 ansiColor('xterm') {
                     unstash 'source'
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
-                        echo "[Linux] clang-tidy analysis"
+                        echo "[Linux] clang-tidy analysis (demo)"
 
-                        # Простейший пример через CMake, если тебе нужен compile_commands.json
+                        if ! command -v clang-tidy >/dev/null 2>&1; then
+                            echo "[WARN] clang-tidy not found, skipping analysis"
+                            exit 0
+                        fi
+
+                        # Простой пример через CMake, чтобы получить compile_commands.json
+                        rm -rf build-tidy
                         mkdir -p build-tidy
                         cd build-tidy
                         cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
                         cd ..
 
-                        clang-tidy -p build-tidy $(find src -name '*.cpp')
+                        src_files=$(find src -name '*.cpp' || true)
+                        if [ -z "$src_files" ]; then
+                            echo "[WARN] No src/*.cpp files found for clang-tidy"
+                            exit 0
+                        fi
+
+                        clang-tidy -p build-tidy $src_files
                     '''
                 }
             }
@@ -110,9 +130,7 @@ pipeline {
                 expression { params.RUN_LINUX }
             }
             matrix {
-                // Вся матрица выполняется на linux-ноде (обычно master/built-in)
-                agent { label 'linux' }
-
+                // Наследуем общий agent any
                 axes {
                     axis {
                         name 'BUILD_TYPE'
@@ -175,7 +193,6 @@ pipeline {
             when {
                 expression { params.RUN_LINUX && params.RUN_COVERAGE }
             }
-            agent { label 'linux' }
             steps {
                 ansiColor('xterm') {
                     unstash 'source'
@@ -192,8 +209,12 @@ pipeline {
                         echo "[Linux][coverage] run tests"
                         meson test -C "${builddir}" --print-errorlogs
 
-                        echo "[Linux][coverage] generate gcovr report"
-                        gcovr -r . --xml-pretty -o "${builddir}/coverage.xml"
+                        if command -v gcovr >/dev/null 2>&1; then
+                            echo "[Linux][coverage] generate gcovr report"
+                            gcovr -r . --xml-pretty -o "${builddir}/coverage.xml"
+                        else
+                            echo "[WARN] gcovr not found, skipping coverage XML"
+                        fi
                     '''
                 }
             }
@@ -204,8 +225,6 @@ pipeline {
                 expression { params.RUN_LINUX && (params.RUN_ASAN || params.RUN_UBSAN || params.RUN_TSAN) }
             }
             matrix {
-                agent { label 'linux' }
-
                 axes {
                     axis {
                         name 'SANITIZER'
@@ -213,7 +232,7 @@ pipeline {
                     }
                 }
 
-                // Оставляем только те санитайзеры, которые включены параметрами
+                // Оставляем только те, что включены параметрами
                 when {
                     expression {
                         (SANITIZER == 'address'   && params.RUN_ASAN)  ||
@@ -251,7 +270,6 @@ pipeline {
             when {
                 expression { params.RUN_LINUX && params.PACKAGE_RELEASE }
             }
-            agent { label 'linux' }
             steps {
                 ansiColor('xterm') {
                     sh '''
@@ -271,21 +289,21 @@ pipeline {
             }
         }
 
-        // ----------- macOS STAGES -----------
+        // ---------- macOS-ВЕТКА (по сути второй набор конфигураций, сейчас тоже бежит на том же агенте) ----------
 
         stage('Bootstrap env (macOS)') {
             when {
                 expression { params.RUN_MAC }
             }
-            agent { label 'mac' }
             steps {
                 ansiColor('xterm') {
+                    unstash 'source'
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
                         echo "[macOS] Bootstrap environment"
-                        which meson || echo "meson must be installed on macOS node (e.g. brew install meson ninja)"
-                        which ninja || echo "ninja must be installed on macOS node"
+                        which meson || echo "[WARN] meson not in PATH (brew install meson ninja)"
+                        which ninja || echo "[WARN] ninja not in PATH"
                     '''
                 }
             }
@@ -296,8 +314,6 @@ pipeline {
                 expression { params.RUN_MAC }
             }
             matrix {
-                agent { label 'mac' }
-
                 axes {
                     axis {
                         name 'BUILD_TYPE'
@@ -356,13 +372,13 @@ pipeline {
 
     post {
         always {
-            // Собираем все JUnit-логи Meson'а
+            // Собираем все JUnit-логи Meson'а (Linux + macOS)
             junit allowEmptyResults: true, testResults: '**/meson-logs/testlog.junit.xml'
 
-            // Логи Meson'а на все случаи
+            // Логи Meson'а
             archiveArtifacts artifacts: '**/meson-logs/**', allowEmptyArchive: true
 
-            // Упакованные релизные артефакты (Linux)
+            // Архивы с артефактами
             archiveArtifacts artifacts: 'artifact-*.tar.gz', allowEmptyArchive: true
         }
 
