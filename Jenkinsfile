@@ -351,6 +351,26 @@ pipeline {
                 }
             }
         }
+
+        stage('Package (macOS)') {
+            when { expression { params.RUN_MAC && params.PACKAGE_RELEASE } }
+            steps {
+                ansiColor('xterm') {
+                    sh '''
+                        #!/usr/bin/env bash
+                        set -euo pipefail
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
+                        builddir="build-mac-release"
+                        echo "[macOS][package] pack artifact"
+                        if [ ! -d "${builddir}" ]; then
+                            echo "[ERROR] ${builddir} does not exist. Make sure release build succeeded."
+                            exit 1
+                        fi
+                        tar czf artifact-mac.tar.gz -C "${builddir}" .
+                    '''
+                }
+            }
+        }
     }
 
     post {
