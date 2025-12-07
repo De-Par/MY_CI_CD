@@ -1,5 +1,5 @@
 pipeline {
-    // Один агент на весь pipeline (у тебя это сейчас MacOS Jenkins)
+    // Один агент (у тебя сейчас это macOS Jenkins)
     agent any
 
     options {
@@ -8,11 +8,11 @@ pipeline {
     }
 
     parameters {
-        // Ветки для разных "ОС-пайплайнов"
-        booleanParam(name: 'RUN_LINUX',  defaultValue: true,  description: 'Run Linux-style pipeline')
-        booleanParam(name: 'RUN_MAC',    defaultValue: false, description: 'Run macOS-style pipeline')
+        // Выбор "веток"
+        booleanParam(name: 'RUN_LINUX',  defaultValue: false, description: 'Run Linux-style pipeline')
+        booleanParam(name: 'RUN_MAC',    defaultValue: true,  description: 'Run macOS-style pipeline')
 
-        // Дополнительные галочки только для Linux-ветки
+        // Доп.галочки для Linux-ветки
         booleanParam(name: 'RUN_COVERAGE',    defaultValue: false, description: 'Run coverage build (gcovr, Linux only)')
         booleanParam(name: 'RUN_ASAN',        defaultValue: false, description: 'Run AddressSanitizer build (Linux only)')
         booleanParam(name: 'RUN_UBSAN',       defaultValue: false, description: 'Run UndefinedBehaviorSanitizer build (Linux only)')
@@ -22,6 +22,8 @@ pipeline {
 
     environment {
         CLANG_FORMAT_VERSION = '21'
+        // Добавляем типичные пути brew + локальные
+        COMMON_PATH = '/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH'
     }
 
     stages {
@@ -31,30 +33,29 @@ pipeline {
             steps {
                 ansiColor('xterm') {
                     checkout scm
-                    // Чтобы переиспользовать исходники в разных стадиях/матрицах
                     stash name: 'source', includes: '**/*'
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
                         echo "[INFO] Checked out sources"
                         echo "[INFO] Running on OS: $(uname -s)"
+                        echo "[INFO] PATH in Jenkins: $PATH"
                     '''
                 }
             }
         }
 
-        // ---------- LINUX-ВЕТКА (по сути просто «Linux-конфигурация», сейчас бежит на твоём Mac Jenkins) ----------
+        // ---------- LINUX-ВЕТКА (по сути «Linux-конфигурации», сейчас тоже бежит на твоём macOS) ----------
 
         stage('Bootstrap env (Linux)') {
-            when {
-                expression { params.RUN_LINUX }
-            }
+            when { expression { params.RUN_LINUX } }
             steps {
                 ansiColor('xterm') {
                     unstash 'source'
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
+                        export PATH="${COMMON_PATH}"
                         echo "[Linux] Bootstrap environment"
                         which meson  || echo "[WARN] meson not in PATH"
                         which ninja  || echo "[WARN] ninja not in PATH"
@@ -65,21 +66,19 @@ pipeline {
         }
 
         stage('Lint: clang-format (Linux)') {
-            when {
-                expression { params.RUN_LINUX }
-            }
+            when { expression { params.RUN_LINUX } }
             steps {
                 ansiColor('xterm') {
                     unstash 'source'
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
+                        export PATH="${COMMON_PATH}"
                         echo "[Linux] clang-format check"
                         if ! command -v clang-format-${CLANG_FORMAT_VERSION} >/dev/null 2>&1; then
                             echo "[WARN] clang-format-${CLANG_FORMAT_VERSION} not found, skipping"
                             exit 0
                         fi
-                        # Подстрой под свою структуру
                         find src tests -type f \\( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \\) | while read -r file; do
                             clang-format-${CLANG_FORMAT_VERSION} --dry-run --Werror "$file"
                         done
@@ -90,23 +89,21 @@ pipeline {
         }
 
         stage('Analyze: clang-tidy (Linux)') {
-            when {
-                expression { params.RUN_LINUX }
-            }
+            when { expression { params.RUN_LINUX } }
             steps {
                 ansiColor('xterm') {
                     unstash 'source'
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
-                        echo "[Linux] clang-tidy analysis (demo)"
+                        export PATH="${COMMON_PATH}"
+                        echo "[Linux] clang-tidy analysis"
 
                         if ! command -v clang-tidy >/dev/null 2>&1; then
                             echo "[WARN] clang-tidy not found, skipping analysis"
                             exit 0
                         fi
 
-                        # Простой пример через CMake, чтобы получить compile_commands.json
                         rm -rf build-tidy
                         mkdir -p build-tidy
                         cd build-tidy
@@ -126,11 +123,8 @@ pipeline {
         }
 
         stage('Build & Test (Linux)') {
-            when {
-                expression { params.RUN_LINUX }
-            }
+            when { expression { params.RUN_LINUX } }
             matrix {
-                // Наследуем общий agent any
                 axes {
                     axis {
                         name 'BUILD_TYPE'
@@ -146,7 +140,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
-                                    export PATH="$HOME/.local/bin:$PATH"
+                                    export PATH="${COMMON_PATH}"
                                     builddir="build-${BUILD_TYPE}"
                                     echo "[Linux][${BUILD_TYPE}] meson setup"
                                     rm -rf "${builddir}"
@@ -162,7 +156,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
-                                    export PATH="$HOME/.local/bin:$PATH"
+                                    export PATH="${COMMON_PATH}"
                                     builddir="build-${BUILD_TYPE}"
                                     echo "[Linux][${BUILD_TYPE}] meson compile"
                                     meson compile -C "${builddir}"
@@ -177,7 +171,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
-                                    export PATH="$HOME/.local/bin:$PATH"
+                                    export PATH="${COMMON_PATH}"
                                     builddir="build-${BUILD_TYPE}"
                                     echo "[Linux][${BUILD_TYPE}] meson test"
                                     meson test -C "${builddir}" --print-errorlogs
@@ -190,16 +184,14 @@ pipeline {
         }
 
         stage('Coverage (gcovr, Linux)') {
-            when {
-                expression { params.RUN_LINUX && params.RUN_COVERAGE }
-            }
+            when { expression { params.RUN_LINUX && params.RUN_COVERAGE } }
             steps {
                 ansiColor('xterm') {
                     unstash 'source'
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
-                        export PATH="$HOME/.local/bin:$PATH"
+                        export PATH="${COMMON_PATH}"
                         builddir="build-coverage"
                         echo "[Linux][coverage] configure & build"
                         rm -rf "${builddir}"
@@ -221,9 +213,7 @@ pipeline {
         }
 
         stage('Sanitizers (Linux)') {
-            when {
-                expression { params.RUN_LINUX && (params.RUN_ASAN || params.RUN_UBSAN || params.RUN_TSAN) }
-            }
+            when { expression { params.RUN_LINUX && (params.RUN_ASAN || params.RUN_UBSAN || params.RUN_TSAN) } }
             matrix {
                 axes {
                     axis {
@@ -232,7 +222,6 @@ pipeline {
                     }
                 }
 
-                // Оставляем только те, что включены параметрами
                 when {
                     expression {
                         (SANITIZER == 'address'   && params.RUN_ASAN)  ||
@@ -249,7 +238,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
-                                    export PATH="$HOME/.local/bin:$PATH"
+                                    export PATH="${COMMON_PATH}"
                                     builddir="build-${SANITIZER}"
                                     echo "[Linux][${SANITIZER}] configure & build"
                                     rm -rf "${builddir}"
@@ -267,15 +256,13 @@ pipeline {
         }
 
         stage('Package (CD, Linux)') {
-            when {
-                expression { params.RUN_LINUX && params.PACKAGE_RELEASE }
-            }
+            when { expression { params.RUN_LINUX && params.PACKAGE_RELEASE } }
             steps {
                 ansiColor('xterm') {
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
-                        export PATH="$HOME/.local/bin:$PATH"
+                        export PATH="${COMMON_PATH}"
                         builddir="build-release"
                         echo "[Linux][package] configure & build"
                         rm -rf "${builddir}"
@@ -289,18 +276,17 @@ pipeline {
             }
         }
 
-        // ---------- macOS-ВЕТКА (по сути второй набор конфигураций, сейчас тоже бежит на том же агенте) ----------
+        // ---------- macOS-ВЕТКА ----------
 
         stage('Bootstrap env (macOS)') {
-            when {
-                expression { params.RUN_MAC }
-            }
+            when { expression { params.RUN_MAC } }
             steps {
                 ansiColor('xterm') {
                     unstash 'source'
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
+                        export PATH="${COMMON_PATH}"
                         echo "[macOS] Bootstrap environment"
                         which meson || echo "[WARN] meson not in PATH (brew install meson ninja)"
                         which ninja || echo "[WARN] ninja not in PATH"
@@ -310,9 +296,7 @@ pipeline {
         }
 
         stage('Build & Test (macOS)') {
-            when {
-                expression { params.RUN_MAC }
-            }
+            when { expression { params.RUN_MAC } }
             matrix {
                 axes {
                     axis {
@@ -329,6 +313,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
+                                    export PATH="${COMMON_PATH}"
                                     builddir="build-mac-${BUILD_TYPE}"
                                     echo "[macOS][${BUILD_TYPE}] meson setup"
                                     rm -rf "${builddir}"
@@ -344,6 +329,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
+                                    export PATH="${COMMON_PATH}"
                                     builddir="build-mac-${BUILD_TYPE}"
                                     echo "[macOS][${BUILD_TYPE}] meson compile"
                                     meson compile -C "${builddir}"
@@ -358,6 +344,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
+                                    export PATH="${COMMON_PATH}"
                                     builddir="build-mac-${BUILD_TYPE}"
                                     echo "[macOS][${BUILD_TYPE}] meson test"
                                     meson test -C "${builddir}" --print-errorlogs
@@ -372,13 +359,8 @@ pipeline {
 
     post {
         always {
-            // Собираем все JUnit-логи Meson'а (Linux + macOS)
             junit allowEmptyResults: true, testResults: '**/meson-logs/testlog.junit.xml'
-
-            // Логи Meson'а
             archiveArtifacts artifacts: '**/meson-logs/**', allowEmptyArchive: true
-
-            // Архивы с артефактами
             archiveArtifacts artifacts: 'artifact-*.tar.gz', allowEmptyArchive: true
         }
 
