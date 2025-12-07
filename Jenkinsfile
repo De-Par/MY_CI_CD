@@ -102,7 +102,6 @@ pipeline {
 
         stage('Build & Test (Linux)') {
             when { expression { params.RUN_LINUX } }
-            agent { label 'linux' }
             matrix {
                 axes {
                     axis {
@@ -113,6 +112,7 @@ pipeline {
 
                 stages {
                     stage('Configure') {
+                        agent { label 'linux' }
                         steps {
                             unstash 'source'
                             sh '''
@@ -127,6 +127,7 @@ pipeline {
                     }
 
                     stage('Build') {
+                        agent { label 'linux' }
                         steps {
                             sh '''
                                 #!/usr/bin/env bash
@@ -138,6 +139,7 @@ pipeline {
                     }
 
                     stage('Test') {
+                        agent { label 'linux' }
                         steps {
                             sh '''
                                 #!/usr/bin/env bash
@@ -180,7 +182,6 @@ pipeline {
             when {
                 expression { params.RUN_LINUX && (params.RUN_ASAN || params.RUN_UBSAN || params.RUN_TSAN) }
             }
-            agent { label 'linux' }
             matrix {
                 axes {
                     axis {
@@ -199,6 +200,7 @@ pipeline {
 
                 stages {
                     stage('Configure/Build/Test') {
+                        agent { label 'linux' }
                         steps {
                             unstash 'source'
                             sh '''
