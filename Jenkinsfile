@@ -8,7 +8,7 @@ pipeline {
     }
 
     parameters {
-        booleanParam(name: 'RUN_LINUX', defaultValue: true, description: 'Запускать Linux-пайплайн')
+        booleanParam(name: 'RUN_LINUX', defaultValue: false, description: 'Запускать Linux-пайплайн')
         booleanParam(name: 'RUN_MAC', defaultValue: true, description: 'Запускать macOS-пайплайн')
         booleanParam(name: 'RUN_COVERAGE', defaultValue: false, description: 'Run coverage build (gcovr, Linux)')
         booleanParam(name: 'RUN_ASAN', defaultValue: false, description: 'Run AddressSanitizer build (Linux)')
