@@ -1,5 +1,4 @@
 pipeline {
-    // Один агент (у тебя сейчас это macOS Jenkins)
     agent any
 
     options {
@@ -8,11 +7,9 @@ pipeline {
     }
 
     parameters {
-        // Выбор "веток"
         booleanParam(name: 'RUN_LINUX',  defaultValue: false, description: 'Run Linux-style pipeline')
-        booleanParam(name: 'RUN_MAC',    defaultValue: true,  description: 'Run macOS-style pipeline')
+        booleanParam(name: 'RUN_MAC',    defaultValue: true,  description: 'Run macOS pipeline')
 
-        // Доп.галочки для Linux-ветки
         booleanParam(name: 'RUN_COVERAGE',    defaultValue: false, description: 'Run coverage build (gcovr, Linux only)')
         booleanParam(name: 'RUN_ASAN',        defaultValue: false, description: 'Run AddressSanitizer build (Linux only)')
         booleanParam(name: 'RUN_UBSAN',       defaultValue: false, description: 'Run UndefinedBehaviorSanitizer build (Linux only)')
@@ -22,8 +19,6 @@ pipeline {
 
     environment {
         CLANG_FORMAT_VERSION = '21'
-        // Добавляем типичные пути brew + локальные
-        COMMON_PATH = '/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH'
     }
 
     stages {
@@ -45,7 +40,7 @@ pipeline {
             }
         }
 
-        // ---------- LINUX-ВЕТКА (по сути «Linux-конфигурации», сейчас тоже бежит на твоём macOS) ----------
+        // ---------- LINUX-ВЕТКА (конфигурация под Linux, сейчас тоже крутится на этом же ноде) ----------
 
         stage('Bootstrap env (Linux)') {
             when { expression { params.RUN_LINUX } }
@@ -55,7 +50,8 @@ pipeline {
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
-                        export PATH="${COMMON_PATH}"
+                        # добавляем brew-пути, но НЕ выкидываем старый PATH
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                         echo "[Linux] Bootstrap environment"
                         which meson  || echo "[WARN] meson not in PATH"
                         which ninja  || echo "[WARN] ninja not in PATH"
@@ -73,14 +69,14 @@ pipeline {
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
-                        export PATH="${COMMON_PATH}"
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                         echo "[Linux] clang-format check"
-                        if ! command -v clang-format-${CLANG_FORMAT_VERSION} >/dev/null 2>&1; then
-                            echo "[WARN] clang-format-${CLANG_FORMAT_VERSION} not found, skipping"
+                        if ! command -v clang-format-21 >/dev/null 2>&1; then
+                            echo "[WARN] clang-format-21 not found, skipping"
                             exit 0
                         fi
                         find src tests -type f \\( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \\) | while read -r file; do
-                            clang-format-${CLANG_FORMAT_VERSION} --dry-run --Werror "$file"
+                            clang-format-21 --dry-run --Werror "$file"
                         done
                         echo "[Linux] clang-format OK"
                     '''
@@ -96,7 +92,7 @@ pipeline {
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
-                        export PATH="${COMMON_PATH}"
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                         echo "[Linux] clang-tidy analysis"
 
                         if ! command -v clang-tidy >/dev/null 2>&1; then
@@ -140,7 +136,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
-                                    export PATH="${COMMON_PATH}"
+                                    export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                                     builddir="build-${BUILD_TYPE}"
                                     echo "[Linux][${BUILD_TYPE}] meson setup"
                                     rm -rf "${builddir}"
@@ -156,7 +152,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
-                                    export PATH="${COMMON_PATH}"
+                                    export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                                     builddir="build-${BUILD_TYPE}"
                                     echo "[Linux][${BUILD_TYPE}] meson compile"
                                     meson compile -C "${builddir}"
@@ -171,7 +167,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
-                                    export PATH="${COMMON_PATH}"
+                                    export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                                     builddir="build-${BUILD_TYPE}"
                                     echo "[Linux][${BUILD_TYPE}] meson test"
                                     meson test -C "${builddir}" --print-errorlogs
@@ -191,7 +187,7 @@ pipeline {
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
-                        export PATH="${COMMON_PATH}"
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                         builddir="build-coverage"
                         echo "[Linux][coverage] configure & build"
                         rm -rf "${builddir}"
@@ -238,7 +234,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
-                                    export PATH="${COMMON_PATH}"
+                                    export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                                     builddir="build-${SANITIZER}"
                                     echo "[Linux][${SANITIZER}] configure & build"
                                     rm -rf "${builddir}"
@@ -262,7 +258,7 @@ pipeline {
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
-                        export PATH="${COMMON_PATH}"
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                         builddir="build-release"
                         echo "[Linux][package] configure & build"
                         rm -rf "${builddir}"
@@ -286,7 +282,7 @@ pipeline {
                     sh '''
                         #!/usr/bin/env bash
                         set -euo pipefail
-                        export PATH="${COMMON_PATH}"
+                        export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                         echo "[macOS] Bootstrap environment"
                         which meson || echo "[WARN] meson not in PATH (brew install meson ninja)"
                         which ninja || echo "[WARN] ninja not in PATH"
@@ -313,7 +309,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
-                                    export PATH="${COMMON_PATH}"
+                                    export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                                     builddir="build-mac-${BUILD_TYPE}"
                                     echo "[macOS][${BUILD_TYPE}] meson setup"
                                     rm -rf "${builddir}"
@@ -329,7 +325,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
-                                    export PATH="${COMMON_PATH}"
+                                    export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                                     builddir="build-mac-${BUILD_TYPE}"
                                     echo "[macOS][${BUILD_TYPE}] meson compile"
                                     meson compile -C "${builddir}"
@@ -344,7 +340,7 @@ pipeline {
                                 sh '''
                                     #!/usr/bin/env bash
                                     set -euo pipefail
-                                    export PATH="${COMMON_PATH}"
+                                    export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
                                     builddir="build-mac-${BUILD_TYPE}"
                                     echo "[macOS][${BUILD_TYPE}] meson test"
                                     meson test -C "${builddir}" --print-errorlogs
