@@ -14,7 +14,7 @@ pipeline {
         booleanParam(name: 'RUN_ASAN',        defaultValue: false, description: 'Run AddressSanitizer build (Linux only)')
         booleanParam(name: 'RUN_UBSAN',       defaultValue: false, description: 'Run UndefinedBehaviorSanitizer build (Linux only)')
         booleanParam(name: 'RUN_TSAN',        defaultValue: false, description: 'Run ThreadSanitizer build (Linux only)')
-        booleanParam(name: 'PACKAGE_RELEASE', defaultValue: false, description: 'Package release artifact after tests (Linux only)')
+        booleanParam(name: 'PACKAGE_RELEASE', defaultValue: false, description: 'Package release artifact after tests')
     }
 
     environment {
